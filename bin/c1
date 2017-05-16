@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+require_relative '../c1/grammar'
+
+$max = 0
+data = ARGF.read
+input = Parser::Input.new(data)
+result = Parser::Fry.toplevels.parse(input)
+if !result or !result.eos?
+  puts "Parse error at: #$max"
+  p data[$max, 10]
+  exit 1
+end
+
+p result.tags.map(&:to_a)
+
