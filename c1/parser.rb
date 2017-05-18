@@ -2,7 +2,11 @@ module Parser
   class Input
     attr_reader :data, :pos, :tags
 
-    Tag = Struct.new(:position, :name)
+    Tag = Struct.new(:position, :name) do
+      def inspect
+        "#{position}:#{name}"
+      end
+    end
 
     def initialize(data, pos = 0, tags = [])
       @data = data
