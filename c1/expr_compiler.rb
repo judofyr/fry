@@ -18,14 +18,16 @@ module ExprCompiler
       IntegerExpr.new(num)
     when :var
       varname = w.read_ident
-      scope[varname] = var = Variable.new(varname)
+      var = Variable.new(varname)
       scope.target.register_variable(var)
 
       if w.take(:assign)
         value = compile(w, scope)
         var.assign_type(value.typeof)
-        AssignExpr.new(var, value)
+        expr = AssignExpr.new(var, value)
       end
+      scope[varname] = var
+      expr
     when :if
       w.next
       cond = compile(w, scope)
