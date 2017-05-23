@@ -33,7 +33,6 @@ class Function < Expr
 
     ExprCompiler.compile_block(w, @body_scope)
 
-    w.take!(:block_end)
     w.take!(:func_end)
   end
 

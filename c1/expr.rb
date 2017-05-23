@@ -93,3 +93,16 @@ class AssignExpr < Expr
   end
 end
 
+## Branches
+
+class BranchExpr < Expr
+  def initialize(cond, tbranch)
+    @cond = cond
+    @tbranch = tbranch
+  end
+
+  def to_js
+    "if (#{@cond.to_js}) {\n#{@tbranch.target.to_js}\n}"
+  end
+end
+

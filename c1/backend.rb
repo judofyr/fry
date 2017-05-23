@@ -91,6 +91,10 @@ class JSBlock
     @code = []
   end
 
+  def new_block
+    JSBlock.new(@js_function)
+  end
+
   def register_variable(var)
     var.symbol_name = @js_function.vargen.create(var.name)
     nil

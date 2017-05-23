@@ -8,6 +8,7 @@ module ExprCompiler
       expr = compile(w, scope)
       scope.target << expr
     end
+    w.next
   end
 
   def compile(w, scope)
@@ -25,6 +26,12 @@ module ExprCompiler
         var.assign_type(value.typeof)
         AssignExpr.new(var, value)
       end
+    when :if
+      w.next
+      cond = compile(w, scope)
+      tbranch = scope.new_child
+      compile_block(w, tbranch)
+      BranchExpr.new(cond, tbranch)
     when :ident
       name = w.read_ident
       symbol = scope[name]

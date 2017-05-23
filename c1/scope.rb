@@ -2,8 +2,9 @@ class Scope
   attr_reader :parent
   attr_accessor :target
 
-  def initialize(parent = nil)
+  def initialize(parent = nil, target = nil)
     @parent = parent
+    @target = target
   end
 
   def [](key)
@@ -16,10 +17,14 @@ class Scope
     end
     raise KeyError, "could not find symbol: #{key}"
   end
+
+  def new_child(klass = SymbolScope)
+    klass.new(self, target && target.new_block)
+  end
 end
 
 class SymbolScope < Scope
-  def initialize(parent = nil)
+  def initialize(*)
     super
     @symbols = {}
   end
