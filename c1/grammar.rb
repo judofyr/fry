@@ -151,8 +151,7 @@ module Parser
       tag(:call) >>
       char(?() >>
       callparam.join(char(?,)).maybe >>
-      char(?)) >>
-      tag(:call_end)
+      char(?))
     end
 
     let(:callparam) do

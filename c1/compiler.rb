@@ -1,10 +1,12 @@
 require_relative 'scope'
 require_relative 'parse_utils'
+require_relative 'function'
+require_relative 'backend'
 
 require 'pathname'
 
 class FryFile
-  attr_reader :scope, :path, :parse_result
+  attr_reader :scope, :path, :parse_result, :compiler
 
   def initialize(path, compiler)
     @path = path
@@ -64,6 +66,8 @@ class FryFile
 end
 
 class FrySymbol
+  attr_reader :name, :file
+
   def initialize(name, idx, file)
     @name = name
     @idx = idx
@@ -71,18 +75,58 @@ class FrySymbol
     @type = @file.parse_result.tags[@idx].name
   end
 
+  def compiler
+    @file.compiler
+  end
+
   def new_walker
     @file.new_walker(@idx)
+  end
+
+  def compile_expr
+    @expr ||= case @type
+    when :func
+      Function.new(self)
+    else
+      raise "Cannot compile #@type"
+    end
+  end
+end
+
+class Variable
+  attr_accessor :symbol_name
+  attr_reader :name
+
+  def initialize(name)
+    @name = name
+  end
+
+  def assign_type(type)
+    @type = type
+  end
+
+  def type
+    @type or raise "Unknown type"
+  end
+
+  def compile_expr
+    VariableExpr.new(self)
+  end
+
+  def symbol_name
+    @symbol_name or raise "Unassigned variable"
   end
 end
 
 class Compiler
-  attr_reader :root_scope
+  attr_reader :root_scope, :backend
 
   def initialize
     @files = {}
     @file_queue = []
     @root_scope = SymbolScope.new
+    @root_scope["Int32"] = Types.ints[32]
+    @backend = JSBackend.new
   end
 
   def file(path)
