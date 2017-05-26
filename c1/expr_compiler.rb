@@ -74,6 +74,10 @@ module ExprCompiler
       end
 
       expr
+    when :return
+      w.next
+      expr = compile(w, scope)
+      ReturnExpr.new(expr)
     else
       raise "Unknown tag: #{w.tag_name}"
     end

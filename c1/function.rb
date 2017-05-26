@@ -2,7 +2,7 @@ require_relative 'expr_compiler'
 require_relative 'backend'
 
 class Function < Expr
-  attr_reader :symbol, :scope
+  attr_reader :symbol, :scope, :return_type, :params
 
   def initialize(symbol)
     @symbol = symbol
@@ -12,16 +12,21 @@ class Function < Expr
     w = symbol.new_walker
     w.take!(:func)
     @name = w.read_ident # func_name
+    @return_type = Types.void
 
     @params = []
     while w.tag_name == :field_name
       param_name = w.read_ident
       w.take!(:field_type)
       type = ExprCompiler.compile(w, @scope)
-      param = Variable.new(param_name)
-      param.assign_type(type)
-      @params << param
-      @scope[param_name] = param
+      if param_name == "return"
+        @return_type = type
+      else
+        param = Variable.new(param_name)
+        param.assign_type(type)
+        @params << param
+        @scope[param_name] = param
+      end
     end
 
     backend = @symbol.compiler.backend

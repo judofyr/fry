@@ -93,6 +93,16 @@ end
 
 ## Functions
 
+class ReturnExpr < Expr
+  def initialize(expr)
+    @expr = expr
+  end
+
+  def to_js
+    "return #{@expr.to_js}"
+  end
+end
+
 class CallExpr < Expr
   def initialize(func, arglist)
     @func = func
@@ -107,6 +117,17 @@ class CallExpr < Expr
       .join(", ")
 
     "%s(%s)" % [@func.symbol_name, args]
+  end
+
+  def typeof
+    type = @func.return_type
+    # TODO: this needs to be handled better...
+    type = type.variable if type.is_a?(VariableExpr)
+    if idx = @func.params.index(type)
+      @arglist[idx]
+    else
+      type
+    end
   end
 end
 
