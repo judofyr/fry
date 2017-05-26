@@ -39,19 +39,62 @@ module ExprCompiler
       symbol = scope[name]
       expr = symbol.compile_expr
 
-      if w.take(:call)
-        args = {}
-        while w.tag_name == :arg_name
-          arg_name = w.read_ident
-          value = compile(w, scope)
-          args[arg_name] = value
+      while true
+        if w.take(:gencall)
+          args = []
+          while w.take(:arg)
+            args << compile(w, scope)
+          end
+          w.take!(:gencall_end)
+          expr = expr.gencall(args)
         end
-        expr = expr.call(args)
+
+        if w.take(:call)
+          args = {}
+          while w.tag_name == :arg_name
+            arg_name = w.read_ident
+            value = compile(w, scope)
+            args[arg_name] = value
+          end
+          w.take!(:call_end)
+          expr = expr.call(args)
+        end
+
+        if w.take(:field)
+          name = w.read_ident
+          case type = expr.typeof
+          when StructType
+            expr = type.field(expr, name)
+          else
+            raise "no such field: #{name}"
+          end
+        else
+          break
+        end
       end
+
       expr
     else
       raise "Unknown tag: #{w.tag_name}"
     end
+  end
+
+  def typecheck(expr, type, mapping)
+    if expr.typeof == type
+      return true
+    end
+
+    if type.is_a?(Genparam)
+      if mapped_type = mapping[type]
+        return mapped_type == expr.typeof
+      else
+        # TODO: Check the type of the genparam
+        mapping[type] = expr.typeof
+        return true
+      end
+    end
+
+    return false
   end
 end
 

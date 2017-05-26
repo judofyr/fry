@@ -1,6 +1,7 @@
 require_relative 'scope'
 require_relative 'parse_utils'
 require_relative 'function'
+require_relative 'struct'
 require_relative 'backend'
 
 require 'pathname'
@@ -87,6 +88,8 @@ class FrySymbol
     @expr ||= case @type
     when :func
       Function.new(self)
+    when :struct
+      FryStruct.new(self)
     else
       raise "Cannot compile #@type"
     end
@@ -126,6 +129,7 @@ class Compiler
     @file_queue = []
     @root_scope = SymbolScope.new
     @root_scope["Int32"] = Types.ints[32]
+    @root_scope["Any"] = Types.void
     @backend = JSBackend.new
   end
 

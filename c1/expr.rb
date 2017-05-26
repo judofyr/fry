@@ -37,6 +37,27 @@ end
 class VoidType < Type
 end
 
+class StructType < Type
+  def initialize(struct, genargs)
+    @struct = struct
+    @genargs = genargs
+  end
+
+  def field(expr, name)
+    @struct.fields.each_with_index do |(field_name, type), idx|
+      if field_name == name
+        if type.is_a?(Genparam)
+          genidx = @struct.genparams.index(type)
+          type = @genargs[genidx]
+        end
+
+        return FieldExpr.new(expr, idx, type)
+      end
+    end
+    raise "no such field: #{name}"
+  end
+end
+
 ## Literals
 
 class IntegerExpr < Expr
@@ -63,6 +84,69 @@ class CallExpr < Expr
 
   def to_js
     "%s(%s)" % [@func.symbol_name, @arglist.map(&:to_js).join(", ")]
+  end
+end
+
+class GencallExpr < Expr
+  def initialize(struct, args)
+    @struct = struct
+    @args = args
+
+    if @struct.genparams.size != @args.size
+      # TODO: typecheck (maybe one frame up)
+      raise "gencall params doesn't match up"
+    end
+  end
+
+  def call(args)
+    mapping = {}
+
+    @struct.genparams.zip(@args) do |param, arg|
+      mapping[param] = arg
+    end
+
+    fieldlist = @struct.fields.map do |name, type|
+      arg = args.fetch(name)
+      if !ExprCompiler.typecheck(arg, type, mapping)
+        raise "Couldn't typecheck"
+      end
+      arg
+    end
+
+    StructLiteral.new(@struct, @args, fieldlist)
+  end
+end
+
+class StructLiteral < Expr
+  def initialize(struct, genargs, fields)
+    @struct = struct
+    @genargs = genargs
+    @fields = fields
+    @type = @struct.type_for(genargs)
+  end
+
+  def typeof
+    @type
+  end
+
+  def to_js
+    "[%s]" % @fields.map { |f| f.to_js }.join(", ")
+  end
+end
+
+class FieldExpr < Expr
+  def initialize(base, idx, type)
+    @base = base
+    @idx = idx
+    @type = type
+  end
+
+  def typeof
+    @type
+  end
+
+  def to_js
+    "%s[%d]" % [@base.to_js, @idx]
   end
 end
 

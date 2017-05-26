@@ -136,22 +136,23 @@ module Parser
     end
 
     let(:identcall) do
-      tag(:ident) >> ident >> genargs.maybe >> call.maybe
+      tag(:ident) >> ident >> gencall.maybe >> call.maybe
     end
 
-    let(:genargs) do
-      tag(:genargs) >>
+    let(:gencall) do
+      tag(:gencall) >>
       char(?<) >>
       (tag(:arg) >> space? >> expr >> space?).join(char(?,)) >>
       char(?>) >>
-      tag(:genargs_end) 
+      tag(:gencall_end)
     end
 
     let(:call) do
       tag(:call) >>
       char(?() >>
       callparam.join(char(?,)).maybe >>
-      char(?))
+      char(?)) >>
+      tag(:call_end)
     end
 
     let(:callparam) do
