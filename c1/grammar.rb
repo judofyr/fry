@@ -156,7 +156,7 @@ module Parser
     end
 
     let(:callparam) do
-      tag(:arg_name) >> ident >>
+      space? >> tag(:arg_name) >> ident >>
       space? >> char(?=) >> space? >>
       expr >> space?
     end
