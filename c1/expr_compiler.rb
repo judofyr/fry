@@ -88,8 +88,19 @@ module ExprCompiler
       if mapped_type = mapping[type]
         return mapped_type == expr.typeof
       else
-        # TODO: Check the type of the genparam
+        raise "this should never happen?"
         mapping[type] = expr.typeof
+        return true
+      end
+    end
+
+    if type.is_a?(VariableExpr)
+      param = type.variable
+      # TODO: maybe subclass fn-params
+      if mapped_type = mapping[param]
+        return mapped_type == expr.typeof
+      else
+        mapping[param] = expr.typeof
         return true
       end
     end

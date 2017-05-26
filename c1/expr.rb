@@ -12,6 +12,10 @@ module Types
   def void
     @void ||= VoidType.new
   end
+  
+  def any
+    @any ||= AnyTrait.new
+  end
 end
 
 class Expr
@@ -26,6 +30,10 @@ class Type < Expr
   def compile_expr
     self
   end
+
+  def typeof
+    Types.type
+  end
 end
 
 class IntType < Type
@@ -35,6 +43,9 @@ class IntType < Type
 end
 
 class VoidType < Type
+end
+
+class TypeType < Type
 end
 
 class StructType < Type
@@ -56,6 +67,12 @@ class StructType < Type
     end
     raise "no such field: #{name}"
   end
+end
+
+class Trait < Type
+end
+
+class AnyTrait < Trait
 end
 
 ## Literals
@@ -83,7 +100,13 @@ class CallExpr < Expr
   end
 
   def to_js
-    "%s(%s)" % [@func.symbol_name, @arglist.map(&:to_js).join(", ")]
+    # TODO: use the @func's concrete params
+    args = @arglist
+      .select { |arg| !arg.typeof.is_a?(TypeType) }
+      .map(&:to_js)
+      .join(", ")
+
+    "%s(%s)" % [@func.symbol_name, args]
   end
 end
 
@@ -153,6 +176,8 @@ end
 ## Variables
 
 class VariableExpr < Expr
+  attr_reader :variable
+
   def initialize(variable)
     @variable = variable
   end

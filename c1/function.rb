@@ -25,7 +25,8 @@ class Function < Expr
     end
 
     backend = @symbol.compiler.backend
-    @js = backend.new_function(@name, @params)
+    concrete_params = @params.select { |p| !p.type.is_a?(Trait) }
+    @js = backend.new_function(@name, concrete_params)
     @body_scope = SymbolScope.new(@scope)
     @body_scope.target = @js.root_block
 
@@ -41,9 +42,22 @@ class Function < Expr
   end
 
   def call(args)
-    arglist = @params.map do |param|
-      args[param.name] or raise "Missing param: #{param.name}"
+    mapping = {}
+
+    args.each do |name, expr|
+      param = @params.detect { |p| p.name == name }
+      raise "no such param: #{name}" unless param
+      if !ExprCompiler.typecheck(expr, param.type, mapping)
+        raise "type error"
+      end
     end
+
+    arglist = @params.map do |param|
+      args[param.name] or
+        mapping[param] or
+        raise "Missing param: #{param.name}"
+    end
+
     CallExpr.new(self, arglist)
   end
 end
