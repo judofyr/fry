@@ -22,6 +22,10 @@ class Expr
   def typeof
     Types.void
   end
+
+  def generic?
+    false
+  end
 end
 
 ## Types
@@ -46,27 +50,6 @@ class VoidType < Type
 end
 
 class TypeType < Type
-end
-
-class StructType < Type
-  def initialize(struct, genargs)
-    @struct = struct
-    @genargs = genargs
-  end
-
-  def field(expr, name)
-    @struct.fields.each_with_index do |(field_name, type), idx|
-      if field_name == name
-        if type.is_a?(Genparam)
-          genidx = @struct.genparams.index(type)
-          type = @genargs[genidx]
-        end
-
-        return FieldExpr.new(expr, idx, type)
-      end
-    end
-    raise "no such field: #{name}"
-  end
 end
 
 class Trait < Type
@@ -131,50 +114,51 @@ class CallExpr < Expr
   end
 end
 
-class GencallExpr < Expr
-  def initialize(struct, args)
-    @struct = struct
-    @args = args
+class GenericExpr < Expr
+  def initialize(expr, mapping)
+    @expr = expr
+    @mapping = mapping
+  end
 
-    if @struct.genparams.size != @args.size
-      # TODO: typecheck (maybe one frame up)
-      raise "gencall params doesn't match up"
+  def resolve(expr)
+    if mapped = @mapping[expr]
+      mapped
+    elsif expr.generic?
+      GenericExpr.new(expr, @mapping)
+    else
+      expr
     end
   end
 
+  def typeof
+    @typeof ||= resolve(@expr.typeof)
+  end
+
   def call(args)
-    mapping = {}
+    GenericExpr.new(@expr.call(args), @mapping)
+  end
 
-    @struct.genparams.zip(@args) do |param, arg|
-      mapping[param] = arg
-    end
+  def field(expr, name)
+    GenericExpr.new(@expr.field(expr, name), @mapping)
+  end
 
-    fieldlist = @struct.fields.map do |name, type|
-      arg = args.fetch(name)
-      if !ExprCompiler.typecheck(arg, type, mapping)
-        raise "Couldn't typecheck"
-      end
-      arg
-    end
-
-    StructLiteral.new(@struct, @args, fieldlist)
+  def to_js
+    @expr.to_js
   end
 end
 
 class StructLiteral < Expr
-  def initialize(struct, genargs, fields)
+  def initialize(struct, values)
     @struct = struct
-    @genargs = genargs
-    @fields = fields
-    @type = @struct.type_for(genargs)
+    @values = values
   end
 
   def typeof
-    @type
+    @struct
   end
 
   def to_js
-    "[%s]" % @fields.map { |f| f.to_js }.join(", ")
+    "[%s]" % @values.map { |f| f.to_js }.join(", ")
   end
 end
 

@@ -48,13 +48,32 @@ class FryStruct < Expr
     w.take!(:struct_end)
   end
 
-  def type_for(genargs)
-    @types[genargs] ||= StructType.new(self, genargs)
+  def generic?
+    @genparams.any?
   end
 
   def gencall(arglist)
     # TODO: typecheck args
-    GencallExpr.new(self, arglist)
+    mapping = {}
+    @genparams.zip(arglist) do |param, arg|
+      mapping[param] = arg
+    end
+    GenericExpr.new(self, mapping)
+  end
+
+  def call(args)
+    # TODO: error on extra arguments
+    values = @fields.map { |name, type| args.fetch(name) }
+    StructLiteral.new(self, values)
+  end
+
+  def field(expr, name)
+    @fields.each_with_index do |(field_name, type), idx|
+      if name == field_name
+        return FieldExpr.new(expr, idx, type)
+      end
+    end
+    raise "no such field: #{name}"
   end
 end
 

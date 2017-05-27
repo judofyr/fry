@@ -62,12 +62,8 @@ module ExprCompiler
 
         if w.take(:field)
           name = w.read_ident
-          case type = expr.typeof
-          when StructType
-            expr = type.field(expr, name)
-          else
-            raise "no such field: #{name}"
-          end
+          type = expr.typeof
+          expr = type.field(expr, name)
         else
           break
         end
