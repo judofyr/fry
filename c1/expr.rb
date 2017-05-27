@@ -139,6 +139,11 @@ class GenericExpr < Expr
   end
 
   def field(expr, name)
+    @mapping.each do |param, expr|
+      if param.name == name
+        return expr
+      end
+    end
     GenericExpr.new(@expr.field(expr, name), @mapping)
   end
 

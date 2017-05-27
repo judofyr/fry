@@ -1,6 +1,8 @@
 require_relative 'expr'
 
 class Genparam < Expr
+  attr_reader :name, :type
+
   def initialize(name, type)
     @name = name
     @type = type
