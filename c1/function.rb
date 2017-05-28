@@ -8,6 +8,8 @@ class Function < Expr
     "add" => AddExpr,
     "sub" => SubExpr,
     "mul" => MulExpr,
+    "and" => AndExpr,
+    "or" => OrExpr,
   }
 
   def initialize(symbol)

@@ -148,38 +148,57 @@ class CallExpr < Expr
   end
 end
 
-module BinaryExpr
+class BuiltinExpr < Expr
   def initialize(func, args)
     @func = func
     @args = args
   end
 
   def typeof
-    @args[0]
+    type = @func.return_type
+    # TODO: this needs to be handled better...
+    type = type.variable if type.is_a?(VariableExpr)
+    if idx = @func.params.index(type)
+      @args[idx]
+    else
+      type
+    end
   end
+end
 
+module BinaryExpr
   def prim
-    "(%s %s %s)" % [@args[1].prim, op, @args[2].prim]
+    "(%s %s %s)" % [@args[-2].prim, op, @args[-1].prim]
   end
 
   def to_js
-    "[%s %s %s]" % [@args[1].prim, op, @args[2].prim]
+    "[%s %s %s]" % [@args[-2].prim, op, @args[-1].prim]
   end
 end
 
-class AddExpr < Expr
+class AddExpr < BuiltinExpr
   include BinaryExpr
   def op; "+" end
 end
 
-class SubExpr < Expr
+class SubExpr < BuiltinExpr
   include BinaryExpr
   def op; "+" end
 end
 
-class MulExpr < Expr
+class MulExpr < BuiltinExpr
   include BinaryExpr
   def op; "*" end
+end
+
+class AndExpr < BuiltinExpr
+  include BinaryExpr
+  def op; "&&" end
+end
+
+class OrExpr < BuiltinExpr
+  include BinaryExpr
+  def op; "||" end
 end
 
 class TypeCastExpr < Expr
