@@ -30,10 +30,25 @@ module ExprCompiler
       expr
     when :if
       w.next
-      cond = compile(w, scope)
-      tbranch = scope.new_child
-      compile_block(w, tbranch)
-      BranchExpr.new(cond, tbranch)
+      cases = []
+      while true
+        cond = compile(w, scope)
+        branch = scope.new_child
+        compile_block(w, branch)
+        cases << [cond, branch]
+
+        if w.take(:elseif)
+          # continue
+        elsif w.take(:else)
+          branch = scope.new_child
+          compile_block(w, branch)
+          cases << [nil, branch]
+          break
+        else
+          break
+        end
+      end
+      BranchExpr.new(cases)
     when :ident
       name = w.read_ident
       symbol = scope[name]

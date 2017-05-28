@@ -299,13 +299,21 @@ end
 ## Branches
 
 class BranchExpr < Expr
-  def initialize(cond, tbranch)
-    @cond = cond
-    @tbranch = tbranch
+  def initialize(cases)
+    @cases = cases
   end
 
   def to_js
-    "if (#{@cond.prim}) {\n#{@tbranch.target.to_js}\n}"
+    @cases.each_with_index.map do |(cond, branch), idx|
+      body = "{\n#{branch.target.to_js}\n}"
+      if !cond
+        " else #{body}"
+      elsif idx.zero?
+        "if (#{cond.prim}) #{body}"
+      else
+        " else if (#{cond.prim}) #{body}"
+      end
+    end.join
   end
 end
 

@@ -198,7 +198,7 @@ module Parser
     let(:if_stmt) do
       tag(:if) >>
       stmt_block("if", expr) >> 
-      (space? >> stmt_block("else if", expr)).repeat >>
+      (tag(:elseif) >> space? >> stmt_block("else if", expr)).repeat >>
       (tag(:else) >> space? >> stmt_block("else")).maybe
     end
 
