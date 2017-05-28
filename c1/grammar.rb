@@ -12,6 +12,10 @@ module Parser
       end
     end
 
+    def attr(name)
+      char(?@) >> ident(name)
+    end
+
     ## Various types of whitespace
 
     let(:space?) do
@@ -79,7 +83,7 @@ module Parser
       tag(:func) >>
       func_name >>
       field.repeat >>
-      func_body >>
+      (func_body / func_builtin) >>
       tag(:func_end)
     end
 
@@ -90,6 +94,10 @@ module Parser
 
     let(:func_body) do
       tag(:func_body) >> char(?{) >> block >> char(?})
+    end
+
+    let(:func_builtin) do
+      tag(:func_builtin) >> attr("builtin")
     end
 
     ## Struct / Union

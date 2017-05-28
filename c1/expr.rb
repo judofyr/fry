@@ -34,6 +34,10 @@ class Expr
   def generic?
     false
   end
+
+  def prim
+    "#{to_js}[0]"
+  end
 end
 
 ## Types
@@ -95,6 +99,10 @@ class IntegerExpr < Expr
     Types.ints[32]
   end
 
+  def prim
+    "#{@value}"
+  end
+
   def to_js
     "[#{@value}]"
   end
@@ -138,6 +146,40 @@ class CallExpr < Expr
       type
     end
   end
+end
+
+module BinaryExpr
+  def initialize(func, args)
+    @func = func
+    @args = args
+  end
+
+  def typeof
+    @args[0]
+  end
+
+  def prim
+    "(%s %s %s)" % [@args[1].prim, op, @args[2].prim]
+  end
+
+  def to_js
+    "[%s %s %s]" % [@args[1].prim, op, @args[2].prim]
+  end
+end
+
+class AddExpr < Expr
+  include BinaryExpr
+  def op; "+" end
+end
+
+class SubExpr < Expr
+  include BinaryExpr
+  def op; "+" end
+end
+
+class MulExpr < Expr
+  include BinaryExpr
+  def op; "*" end
 end
 
 class TypeCastExpr < Expr

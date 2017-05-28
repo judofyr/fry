@@ -4,6 +4,12 @@ require_relative 'backend'
 class Function < Expr
   attr_reader :symbol, :scope, :return_type, :params
 
+  BUILTINS = {
+    "add" => AddExpr,
+    "sub" => SubExpr,
+    "mul" => MulExpr,
+  }
+
   def initialize(symbol)
     @symbol = symbol
 
@@ -29,15 +35,17 @@ class Function < Expr
       end
     end
 
-    backend = @symbol.compiler.backend
-    concrete_params = @params.select { |p| !p.type.is_a?(Trait) }
-    @js = backend.new_function(@name, concrete_params)
-    @body_scope = SymbolScope.new(@scope)
-    @body_scope.target = @js.root_block
-
-    w.take!(:func_body)
-
-    ExprCompiler.compile_block(w, @body_scope)
+    if w.take(:func_body)
+      backend = @symbol.compiler.backend
+      concrete_params = @params.select { |p| !p.type.is_a?(Trait) }
+      @js = backend.new_function(@name, concrete_params)
+      @body_scope = SymbolScope.new(@scope)
+      @body_scope.target = @js.root_block
+      @call_class = CallExpr
+      ExprCompiler.compile_block(w, @body_scope)
+    elsif w.take(:func_builtin)
+      @call_class = BUILTINS.fetch(@name)
+    end
 
     w.take!(:func_end)
   end
@@ -63,7 +71,7 @@ class Function < Expr
         raise "Missing param: #{param.name}"
     end
 
-    CallExpr.new(self, arglist)
+    @call_class.new(self, arglist)
   end
 end
 
