@@ -201,68 +201,14 @@ class OrExpr < BuiltinExpr
   def op; "||" end
 end
 
-class TypeCastExpr < Expr
-  def initialize(expr, type)
-    @expr = expr
-    @type = type
-  end
-
-  def typeof
-    @type
-  end
-
-  def to_js
-    @expr.to_js
-  end
-end
-
-class GenericExpr < Expr
-  def initialize(expr, mapping)
-    @expr = expr
-    @mapping = mapping
-  end
-
-  def typeof
-    @type ||= GenericExpr.new(@expr.typeof, @mapping)
-  end
-
-  def resolve(expr)
-    type = expr.typeof
-    if mapped = @mapping[type]
-      TypeCastExpr.new(expr, mapped)
-    elsif type.generic?
-      GenericExpr.new(expr, @mapping)
-    else
-      expr
-    end
-  end
-
-  def call(args)
-    resolve(@expr.call(args))
-  end
-
-  def field(expr, name)
-    @mapping.each do |param, expr|
-      if param.name == name
-        return expr
-      end
-    end
-    resolve(@expr.field(expr, name))
-  end
-
-  def to_js
-    @expr.to_js
-  end
-end
-
 class StructLiteral < Expr
-  def initialize(struct, values)
-    @struct = struct
+  def initialize(type, values)
+    @type = type
     @values = values
   end
 
   def typeof
-    @struct
+    @type
   end
 
   def to_js

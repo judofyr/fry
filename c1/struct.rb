@@ -62,19 +62,53 @@ class FryStruct < Expr
       end
       mapping[param] = arg
     end
-    GenericExpr.new(self, mapping)
+    GencallExpr.new(self, mapping)
+  end
+
+  def call(args)
+    gencall([]).call(args)
+  end
+end
+
+class GencallExpr < Expr
+  attr_reader :struct, :mapping
+
+  def initialize(struct, mapping)
+    @struct = struct
+    @mapping = mapping
+  end
+
+  def resolve(type)
+    if mapped = @mapping[type]
+      mapped
+    elsif type.is_a?(GencallExpr)
+      new_mapping = {}
+      type.mapping.each do |from, to|
+        new_mapping[from] = resolve(to)
+      end
+      GencallExpr.new(type.struct, new_mapping)
+    else
+      type
+    end
   end
 
   def call(args)
     # TODO: error on extra arguments
-    values = @fields.map { |name, type| args.fetch(name) }
+    values = @struct.fields.map { |name, type| args.fetch(name) }
     StructLiteral.new(self, values)
   end
 
   def field(expr, name)
-    @fields.each_with_index do |(field_name, type), idx|
+    @struct.fields.each_with_index do |(field_name, type), idx|
       if name == field_name
+        type = resolve(type)
         return FieldExpr.new(expr, idx, type)
+      end
+    end
+
+    @mapping.each do |param, value|
+      if param.name == name
+        return value
       end
     end
     raise "no such field: #{name}"
