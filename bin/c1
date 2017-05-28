@@ -3,6 +3,7 @@ require_relative '../c1/compiler'
 require_relative '../c1/grammar'
 
 c = Compiler.new
+c.core_file = c.file(__dir__ + "/../c1/core.fry")
 filename = File.expand_path(ARGV.fetch(0))
 main_file = c.file(filename)
 c.process_files

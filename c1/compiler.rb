@@ -7,7 +7,7 @@ require_relative 'backend'
 require 'pathname'
 
 class FryFile
-  attr_reader :scope, :path, :parse_result, :compiler
+  attr_reader :scope, :path, :parse_result, :compiler, :included_files
 
   def initialize(path, compiler)
     @path = path
@@ -123,6 +123,7 @@ end
 
 class Compiler
   attr_reader :root_scope, :backend
+  attr_accessor :core_file
 
   def initialize
     @files = {}
@@ -141,6 +142,9 @@ class Compiler
       @files[path]
     else
       file = FryFile.new(path, self)
+      if core_file
+        file.included_files << core_file
+      end
       @file_queue << file
       @files[path] = file
     end

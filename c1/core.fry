@@ -1,0 +1,33 @@
+function add
+T: NumType
+a: T
+b: T
+return: T
+@builtin
+
+function sub
+T: NumType
+a: T
+b: T
+return: T
+@builtin
+
+function mul
+T: NumType
+a: T
+b: T
+return: T
+@builtin
+
+function and
+a: Bool
+b: Bool
+return: Bool
+@builtin
+
+function or
+a: Bool
+b: Bool
+return: Bool
+@builtin
+
