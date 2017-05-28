@@ -305,7 +305,7 @@ class BranchExpr < Expr
   end
 
   def to_js
-    "if (#{@cond.to_js}) {\n#{@tbranch.target.to_js}\n}"
+    "if (#{@cond.prim}) {\n#{@tbranch.target.to_js}\n}"
   end
 end
 
