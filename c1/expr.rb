@@ -116,7 +116,7 @@ class ReturnExpr < Expr
   end
 
   def to_js
-    "return #{@expr.to_js}"
+    "return #{@expr.to_js};"
   end
 end
 
