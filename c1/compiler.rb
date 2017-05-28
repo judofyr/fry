@@ -129,7 +129,9 @@ class Compiler
     @file_queue = []
     @root_scope = SymbolScope.new
     @root_scope["Int32"] = Types.ints[32]
-    @root_scope["Any"] = Types.any
+    @root_scope["Type"] = Types.any_trait
+    @root_scope["NumType"] = Types.num_trait
+    @root_scope["IntType"] = Types.int_trait
     @backend = JSBackend.new
   end
 

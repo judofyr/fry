@@ -13,8 +13,16 @@ module Types
     @void ||= VoidType.new
   end
   
-  def any
-    @any ||= AnyTrait.new
+  def any_trait
+    @any_trait ||= AnyTrait.new
+  end
+
+  def num_trait
+    @num_trait ||= NumTrait.new
+  end
+
+  def int_trait
+    @int_trait ||= IntTrait.new
   end
 end
 
@@ -53,9 +61,27 @@ class TypeType < Type
 end
 
 class Trait < Type
+  def matches?(type)
+    false
+  end
 end
 
 class AnyTrait < Trait
+  def matches?(type)
+    true
+  end
+end
+
+class NumTrait < Trait
+  def matches?(type)
+    type.is_a?(IntType)
+  end
+end
+
+class IntTrait < Trait
+  def matches?(type)
+    type.is_a?(IntType)
+  end
 end
 
 ## Literals

@@ -55,9 +55,11 @@ class FryStruct < Expr
   end
 
   def gencall(arglist)
-    # TODO: typecheck args
     mapping = {}
     @genparams.zip(arglist) do |param, arg|
+      if !param.type.matches?(arg)
+        raise "type mismatch"
+      end
       mapping[param] = arg
     end
     GenericExpr.new(self, mapping)
