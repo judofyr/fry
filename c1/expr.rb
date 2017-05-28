@@ -114,28 +114,44 @@ class CallExpr < Expr
   end
 end
 
+class TypeCastExpr < Expr
+  def initialize(expr, type)
+    @expr = expr
+    @type = type
+  end
+
+  def typeof
+    @type
+  end
+
+  def to_js
+    @expr.to_js
+  end
+end
+
 class GenericExpr < Expr
   def initialize(expr, mapping)
     @expr = expr
     @mapping = mapping
   end
 
+  def typeof
+    @type ||= GenericExpr.new(@expr.typeof, @mapping)
+  end
+
   def resolve(expr)
-    if mapped = @mapping[expr]
-      mapped
-    elsif expr.generic?
+    type = expr.typeof
+    if mapped = @mapping[type]
+      TypeCastExpr.new(expr, mapped)
+    elsif type.generic?
       GenericExpr.new(expr, @mapping)
     else
       expr
     end
   end
 
-  def typeof
-    @typeof ||= resolve(@expr.typeof)
-  end
-
   def call(args)
-    GenericExpr.new(@expr.call(args), @mapping)
+    resolve(@expr.call(args))
   end
 
   def field(expr, name)
@@ -144,7 +160,7 @@ class GenericExpr < Expr
         return expr
       end
     end
-    GenericExpr.new(@expr.field(expr, name), @mapping)
+    resolve(@expr.field(expr, name))
   end
 
   def to_js
