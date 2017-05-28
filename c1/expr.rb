@@ -292,7 +292,7 @@ class AssignExpr < Expr
   end
 
   def to_js
-    "#{@variable.symbol_name} = #{@value.to_js}"
+    "#{@variable.symbol_name} = #{@value.to_js};"
   end
 end
 

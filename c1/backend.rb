@@ -101,7 +101,11 @@ class JSBlock
   end
 
   def <<(expr)
-    @code << "#{expr.to_js};"
+    code = expr.to_js
+    if !expr.typeof.is_a?(VoidType)
+      code = "#{code};"
+    end
+    @code << code
   end
 
   def to_js
