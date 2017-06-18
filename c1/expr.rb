@@ -215,6 +215,20 @@ class OrExpr < BuiltinExpr
   def op; "||" end
 end
 
+class SetExpr < BuiltinExpr
+  def to_js
+    type, loc, value = *@args
+    case type
+    when GencallExpr
+      type.struct.fields.size.times.map do |idx|
+        "%s[%d] = %s[%d];" % [loc.to_js, idx, value.to_js, idx]
+      end.join(" ")
+    else
+      "%s = %s;" % [loc.prim, value.prim]
+    end
+  end
+end
+
 class JSAtExpr < BuiltinExpr
   def to_js
     "%s[%s]" % [@args[2].to_js, @args[3].prim]

@@ -200,7 +200,7 @@ module Parser
     end
 
     let(:stmt) do
-      if_stmt / while_stmt / var_stmt / return_stmt / assign_stmt
+      if_stmt / while_stmt / var_stmt / return_stmt / assign_stmt / expr
     end
 
     let(:if_stmt) do

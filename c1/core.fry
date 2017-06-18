@@ -31,6 +31,12 @@ b: Bool
 return: Bool
 @builtin
 
+function set
+T: Type
+a: T
+b: T
+@builtin
+
 struct Arr
 T: Type
 
