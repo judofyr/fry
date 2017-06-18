@@ -116,6 +116,13 @@ module ExprCompiler
       return true
     end
 
+    if value.is_a?(Function::CoercibleType)
+      if value.type == target
+        value.expr.coerce_to(target)
+        return true
+      end
+    end
+
     if set = free[target]
       set << value
       return true

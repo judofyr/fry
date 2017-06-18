@@ -64,6 +64,10 @@ class Function < Expr
     def initialize(expr)
       @expr = expr
     end
+
+    def type
+      @expr.typeof
+    end
   end
 
   def call(args)
