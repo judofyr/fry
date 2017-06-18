@@ -71,7 +71,7 @@ class FryStruct < Expr
   end
 end
 
-class GencallExpr < Expr
+class GencallExpr < Type
   attr_reader :struct, :mapping
 
   def initialize(struct, mapping)
