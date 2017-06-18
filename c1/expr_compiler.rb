@@ -102,7 +102,7 @@ module ExprCompiler
         expr.coerce_to(expected)
       end
 
-      if expr.typeof != expected
+      if !expr.typeof.eql?(expected)
         raise "returned wrong type"
       end
       ReturnExpr.new(expr)
