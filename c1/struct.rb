@@ -79,6 +79,18 @@ class GencallExpr < Expr
     @mapping = mapping
   end
 
+  def values
+    [@struct, @mapping]
+  end
+
+  def hash
+    values.hash
+  end
+
+  def eql?(other)
+    other.is_a?(GencallExpr) and values.eql?(other.values)
+  end
+
   def resolve(type)
     if mapped = @mapping[type]
       mapped
