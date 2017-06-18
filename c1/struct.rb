@@ -14,7 +14,7 @@ class Genparam < Expr
 end
 
 class FryStruct < Expr
-  attr_reader :genparams, :fields
+  attr_reader :name, :genparams, :fields
 
   def initialize(symbol)
     @symbol = symbol
