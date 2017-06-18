@@ -94,30 +94,28 @@ module ExprCompiler
     end
   end
 
-  def typecheck(expr, type, mapping)
-    if expr.typeof == type
+  def matches?(value, target, free)
+    if value == target
       return true
     end
 
-    if type.is_a?(Genparam)
-      if mapped_type = mapping[type]
-        return mapped_type == expr.typeof
-      else
-        raise "this should never happen?"
-        mapping[type] = expr.typeof
-        return true
-      end
+    if set = free[target]
+      set << value
+      return true
     end
 
-    if type.is_a?(VariableExpr)
-      param = type.variable
-      # TODO: maybe subclass fn-params
-      if mapped_type = mapping[param]
-        return mapped_type == expr.typeof
-      else
-        mapping[param] = expr.typeof
-        return true
+    if target.is_a?(GencallExpr) && value.is_a?(GencallExpr)
+      if target.struct != value.struct
+        return false
       end
+
+      value.mapping.each do |from, to|
+        if !matches?(to, target.mapping[from], free)
+          return false
+        end
+      end
+
+      return true
     end
 
     return false

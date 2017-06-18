@@ -1,3 +1,4 @@
+require 'set'
 require_relative 'expr_compiler'
 require_relative 'backend'
 
@@ -56,20 +57,57 @@ class Function < Expr
     @js.symbol
   end
 
+  class CoercibleType < Type
+    attr_reader :expr
+
+    def initialize(expr)
+      @expr = expr
+    end
+  end
+
   def call(args)
-    mapping = {}
+    free = {}
+    @params.each do |p|
+      if !args.has_key?(p.name)
+        free[p] = Set.new
+      end
+    end
 
     args.each do |name, expr|
       param = @params.detect { |p| p.name == name }
       raise "no such param: #{name}" unless param
-      if !ExprCompiler.typecheck(expr, param.type, mapping)
-        raise "type error"
+
+      if expr.respond_to?(:coerce_to)
+        type = CoercibleType.new(expr)
+      else
+        type = expr.typeof
+      end
+      did_match = ExprCompiler.matches?(type, param.type, free)
+      raise "type error" if !did_match
+    end
+
+    inferred_args = {}
+
+    free.each do |param, set|
+      main, coercible = set.partition { |t| !t.is_a?(CoercibleType) }
+
+      if main.size == 0 && coercible.size > 0
+        main << coercible.shift
+      end
+
+      if main.size != 1
+        raise "unable to infer #{param.name}"
+      end
+
+      type = inferred_args[param] = main.first
+      coercible.each do |c|
+        c.expr.coerce_to(type)
       end
     end
 
     arglist = @params.map do |param|
       args[param.name] or
-        mapping[param] or
+        inferred_args[param] or
         raise "Missing param: #{param.name}"
     end
 

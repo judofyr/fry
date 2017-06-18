@@ -31,10 +31,6 @@ class Expr
     Types.void
   end
 
-  def generic?
-    false
-  end
-
   def prim
     "#{to_js}[0]"
   end
@@ -93,10 +89,16 @@ end
 class IntegerExpr < Expr
   def initialize(value)
     @value = value
+    @type = Types.ints[32]
+  end
+
+  def coerce_to(type)
+    # TODO: check that this is correct type
+    @type = type
   end
 
   def typeof
-    Types.ints[32]
+    @type
   end
 
   def prim
@@ -139,7 +141,6 @@ class CallExpr < Expr
   def typeof
     type = @func.return_type
     # TODO: this needs to be handled better...
-    type = type.variable if type.is_a?(VariableExpr)
     if idx = @func.params.index(type)
       @arglist[idx]
     else
@@ -156,8 +157,6 @@ class BuiltinExpr < Expr
 
   def typeof
     type = @func.return_type
-    # TODO: this needs to be handled better...
-    type = type.variable if type.is_a?(VariableExpr)
     if idx = @func.params.index(type)
       @args[idx]
     else
@@ -233,22 +232,6 @@ class FieldExpr < Expr
 end
 
 ## Variables
-
-class VariableExpr < Expr
-  attr_reader :variable
-
-  def initialize(variable)
-    @variable = variable
-  end
-
-  def typeof
-    @variable.type
-  end
-
-  def to_js
-    @variable.symbol_name
-  end
-end
 
 class AssignExpr < Expr
   def initialize(variable, value)

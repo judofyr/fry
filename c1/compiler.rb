@@ -96,7 +96,7 @@ class FrySymbol
   end
 end
 
-class Variable
+class Variable < Expr
   attr_accessor :symbol_name
   attr_reader :name
 
@@ -112,11 +112,15 @@ class Variable
     @type or raise "Unknown type"
   end
 
-  def compile_expr
-    VariableExpr.new(self)
+  def typeof
+    type
   end
 
-  def symbol_name
+  def compile_expr
+    self
+  end
+
+  def to_js
     @symbol_name or raise "Unassigned variable"
   end
 end
