@@ -120,6 +120,17 @@ class Variable < Expr
     self
   end
 
+  def call(args)
+    if type.is_a?(Trait)
+      value = args["a"]
+      if value.respond_to?(:coerce_to)
+        value.coerce_to(self)
+        return value
+      end
+    end
+    raise "cannot call here"
+  end
+
   def to_js
     @symbol_name or raise "Unassigned variable"
   end
