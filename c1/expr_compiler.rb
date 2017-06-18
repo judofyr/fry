@@ -88,6 +88,15 @@ module ExprCompiler
     when :return
       w.next
       expr = compile(w, scope)
+      expected = scope.target.return_type
+
+      if expr.respond_to?(:coerce_to)
+        expr.coerce_to(expected)
+      end
+
+      if expr.typeof != expected
+        raise "returned wrong type"
+      end
       ReturnExpr.new(expr)
     else
       raise "Unknown tag: #{w.tag_name}"

@@ -41,7 +41,7 @@ class Function < Expr
     if w.take(:func_body)
       backend = @symbol.compiler.backend
       concrete_params = @params.select { |p| !p.type.is_a?(Trait) }
-      @js = backend.new_function(@name, concrete_params)
+      @js = backend.new_function(@name, concrete_params, @return_type)
       @body_scope = SymbolScope.new(@scope)
       @body_scope.target = @js.root_block
       @call_class = CallExpr

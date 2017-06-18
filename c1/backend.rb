@@ -40,9 +40,9 @@ class JSBackend
     @functions = []
   end
 
-  def new_function(name, params)
+  def new_function(name, params, return_type)
     symbol = @funcgen.create(name)
-    func = JSFunction.new(symbol, params)
+    func = JSFunction.new(symbol, params, return_type)
     @functions << func
     func
   end
@@ -53,15 +53,16 @@ class JSBackend
 end
 
 class JSFunction
-  attr_reader :symbol, :vargen
+  attr_reader :symbol, :vargen, :return_type
 
-  def initialize(symbol, params)
+  def initialize(symbol, params, return_type)
     @symbol = symbol
     @params = params
     @params.each do |param|
       param.symbol_name = param.name
     end
     @vargen = SymbolGenerator.new("_")
+    @return_type = return_type
   end
 
   def root_block
@@ -93,6 +94,10 @@ class JSBlock
 
   def new_block
     JSBlock.new(@js_function)
+  end
+
+  def return_type
+    @js_function.return_type
   end
 
   def register_variable(var)
