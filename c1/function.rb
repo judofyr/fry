@@ -11,6 +11,7 @@ class Function < Expr
     "mul" => MulExpr,
     "and" => AndExpr,
     "or" => OrExpr,
+    "jsat" => JSAtExpr,
   }
 
   def initialize(symbol)

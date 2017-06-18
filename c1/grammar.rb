@@ -54,6 +54,14 @@ module Parser
       tag(:number_end)
     end
 
+    let(:array) do
+      tag(:array) >>
+      char(?[) >>
+      (space? >> expr >> space?).join(char(?,)) >>
+      char(?]) >>
+      tag(:array_end)
+    end
+
     ## Toplevel statements
 
     let(:toplevel) do
@@ -118,7 +126,7 @@ module Parser
       space? >>
       type_name >>
       field.repeat >>
-      type_body
+      type_body.maybe
     end
 
     let(:type_name) do
@@ -135,7 +143,7 @@ module Parser
     ## Expressions
 
     let(:expr) do
-      string / number / identexpr
+      string / number / array / identexpr
     end
 
     let(:identexpr) do

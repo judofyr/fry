@@ -38,13 +38,14 @@ class FryStruct < Expr
       @scope[param_name] = genparam
     end
 
-    w.take!(:type_body)
     @fields = []
-    while w.tag_name == :field_name
-      param_name = w.read_ident
-      w.take!(:field_type)
-      type = ExprCompiler.compile(w, @scope)
-      @fields << [param_name, type]
+    if w.take(:type_body)
+      while w.tag_name == :field_name
+        param_name = w.read_ident
+        w.take!(:field_type)
+        type = ExprCompiler.compile(w, @scope)
+        @fields << [param_name, type]
+      end
     end
 
     w.take!(:struct_end)

@@ -110,6 +110,21 @@ class IntegerExpr < Expr
   end
 end
 
+class ArrayExpr < Expr
+  def initialize(exprs, struct)
+    @exprs = exprs
+    @struct = struct
+  end
+
+  def typeof
+    @typeof ||= @struct.gencall([@exprs[0].typeof])
+  end
+
+  def to_js
+    "[%s]" % @exprs.map(&:to_js).join(", ")
+  end
+end
+
 ## Functions
 
 class ReturnExpr < Expr
@@ -198,6 +213,12 @@ end
 class OrExpr < BuiltinExpr
   include BinaryExpr
   def op; "||" end
+end
+
+class JSAtExpr < BuiltinExpr
+  def to_js
+    "%s[%s]" % [@args[2].to_js, @args[3].prim]
+  end
 end
 
 class StructLiteral < Expr

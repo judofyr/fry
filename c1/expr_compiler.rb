@@ -16,6 +16,14 @@ module ExprCompiler
     when :number
       num = w.read_number
       IntegerExpr.new(num)
+    when :array
+      w.next
+      exprs = []
+      while !w.take(:array_end)
+        exprs << compile(w, scope)
+      end
+      symbol = scope["Arr"]
+      ArrayExpr.new(exprs, symbol.compile_expr)
     when :var
       varname = w.read_ident
       var = Variable.new(varname)
