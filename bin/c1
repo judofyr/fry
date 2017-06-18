@@ -10,5 +10,15 @@ c.process_files
 
 mainfn = main_file.scope["main"].compile_expr
 
-puts c.backend
+if ARGV.include?('-d')
+  puts c.backend
+else
+  r, w = IO.pipe
+  pid = Process.spawn("node", :in => r)
+  r.close
+  w.write(c.backend)
+  w.write("\n#{mainfn.symbol_name}()")
+  w.close
+  Process.waitpid(pid)
+end
 
