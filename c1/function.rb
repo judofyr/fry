@@ -46,6 +46,15 @@ class Function < Expr
       end
     end
 
+    while w.tag_name == :attr
+      case attr_name = w.read_ident
+      when "builtin"
+        @call_class = BUILTINS.fetch(@name)
+      else
+        raise "Unknown attribute: #{attr_name}"
+      end
+    end
+
     if w.take(:func_body)
       backend = @symbol.compiler.backend
       concrete_params = @params.select { |p| p.is_a?(Variable) }
@@ -54,8 +63,6 @@ class Function < Expr
       @body_scope.target = @js.root_block
       @call_class = CallExpr
       ExprCompiler.compile_block(w, @body_scope)
-    elsif w.take(:func_builtin)
-      @call_class = BUILTINS.fetch(@name)
     end
 
     w.take!(:func_end)
