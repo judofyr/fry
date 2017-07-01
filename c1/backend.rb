@@ -212,8 +212,8 @@ class JSBlock
   end
 
   def suspendable_body
-    code = @contexts.map(&:to_js)
-    code << "#{@contexts[0].symbol}()"
+    code = @contexts[1..-1].map(&:to_js)
+    code << @contexts[0].body
     code.join("\n")
   end
 
