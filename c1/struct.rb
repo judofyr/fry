@@ -34,9 +34,12 @@ module GenSymbol
     if w.take(:type_body)
       while w.tag_name == :field_name
         param_name = w.read_ident
-        w.take!(:field_type)
-        expr = ExprCompiler.compile(w, scope)
-        type = expr.constant_value(TypeConstant) or raise "not a type"
+        if w.take(:field_type)
+          expr = ExprCompiler.compile(w, scope)
+          type = expr.constant_value(TypeConstant) or raise "not a type"
+        else
+          type = Types.void
+        end
         result << [param_name, type]
       end
     end

@@ -75,6 +75,16 @@ class IntExpr < Expr
   end
 end
 
+class VoidExpr < Expr
+  def typeof
+    Types.void
+  end
+
+  def to_js
+    "null"
+  end
+end
+
 class LoadExpr < Expr
   def initialize(variable)
     @variable = variable

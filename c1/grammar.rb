@@ -80,8 +80,8 @@ module Parser
     let(:field) do
       space? >>
       tag(:field_name) >> ident >>
-      char(?:) >> space? >> 
-      tag(:field_type) >> expr >>
+      (char(?:) >> space? >> 
+       tag(:field_type) >> expr).maybe >>
       spaceline
     end
 
@@ -178,7 +178,7 @@ module Parser
     let(:callparam) do
       space? >> tag(:arg_name) >> ident >>
       space? >> char(?=) >> space? >>
-      expr >> space?
+      (expr / tag(:void)) >> space?
     end
 
     let(:assign) do

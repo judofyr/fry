@@ -16,6 +16,9 @@ module ExprCompiler
     when :number
       value = w.read_number
       IntExpr.new(value)
+    when :void
+      w.next
+      VoidExpr.new
     when :var
       varname = w.read_ident
       var = Variable.new(varname)
