@@ -1,34 +1,20 @@
-module Types
-  module_function
-
-  def ints
-    @ints ||= Hash.new { |h, k| h[k] = IntType.new(k) }
-  end
-
-  def type
-    @type ||= TypeType.new
-  end
-
-  def void
-    @void ||= VoidType.new
-  end
-  
-  def any_trait
-    @any_trait ||= AnyTrait.new
-  end
-
-  def num_trait
-    @num_trait ||= NumTrait.new
-  end
-
-  def int_trait
-    @int_trait ||= IntTrait.new
-  end
-end
+require_relative 'type'
+require_relative 'constant'
 
 class Expr
   def typeof
     Types.void
+  end
+
+  def constant
+    # Nope. We're not a constant
+    nil
+  end
+
+  def constant_value(klass)
+    if (c = constant).is_a?(klass)
+      c.value
+    end
   end
 
   def prim
@@ -38,9 +24,19 @@ end
 
 ## Types
 
-class Type < Expr
+class TypeExpr < Expr
+  attr_reader :type
+
+  def initialize(type)
+    @type = type
+  end
+
   def compile_expr
     self
+  end
+
+  def constant
+    @constant ||= TypeConstant.new(@type)
   end
 
   def typeof
@@ -48,53 +44,22 @@ class Type < Expr
   end
 end
 
-class IntType < Type
-  def initialize(bitsize)
-    @bitsize = bitsize
-  end
-end
-
-class VoidType < Type
-end
-
-class TypeType < Type
-end
-
-class Trait < Type
-  def matches?(type)
-    false
-  end
-end
-
-class AnyTrait < Trait
-  def matches?(type)
-    true
-  end
-end
-
-class NumTrait < Trait
-  def matches?(type)
-    type.is_a?(IntType)
-  end
-end
-
-class IntTrait < Trait
-  def matches?(type)
-    type.is_a?(IntType)
+class TypeConstructorExpr < TypeExpr
+  def constant
+    @constant ||= TypeConstructorConstant.new(@type)
   end
 end
 
 ## Literals
 
-class IntegerExpr < Expr
+class IntExpr < Expr
   def initialize(value)
     @value = value
     @type = Types.ints[32]
   end
 
-  def coerce_to(type)
-    # TODO: check that this is correct type
-    @type = type
+  def constant
+    @constant ||= IntConstant.new(@value)
   end
 
   def typeof
@@ -110,18 +75,17 @@ class IntegerExpr < Expr
   end
 end
 
-class ArrayExpr < Expr
-  def initialize(exprs, struct)
-    @exprs = exprs
-    @struct = struct
+class LoadExpr < Expr
+  def initialize(variable)
+    @variable = variable
   end
 
   def typeof
-    @typeof ||= @struct.gencall([@exprs[0].typeof])
+    @variable.type
   end
 
   def to_js
-    "[%s]" % @exprs.map(&:to_js).join(", ")
+    @variable.symbol_name
   end
 end
 
@@ -146,7 +110,9 @@ class CallExpr < Expr
   def to_js
     # TODO: use the @func's concrete params
     args = @arglist
-      .select { |arg| !arg.typeof.is_a?(TypeType) }
+      .zip(@func.params)
+      .select { |(arg, param)| param.is_a?(Variable) }
+      .map { |(arg, param)| arg }
       .map(&:to_js)
       .join(", ")
 
@@ -157,7 +123,7 @@ class CallExpr < Expr
     type = @func.return_type
     # TODO: this needs to be handled better...
     if idx = @func.params.index(type)
-      @arglist[idx]
+      @arglist[idx].constant_value(TypeConstant)
     else
       type
     end
@@ -173,7 +139,7 @@ class BuiltinExpr < Expr
   def typeof
     type = @func.return_type
     if idx = @func.params.index(type)
-      @args[idx]
+      @args[idx].constant_value(TypeConstant)
     else
       type
     end
@@ -217,21 +183,15 @@ end
 
 class SetExpr < BuiltinExpr
   def to_js
-    type, loc, value = *@args
-    case type
-    when GencallExpr
-      type.struct.fields.size.times.map do |idx|
+    type_expr, loc, value = *@args
+    type = type_expr.constant_value(TypeConstant)
+    if type.is_a?(ConstructedType)
+      type.constructor.fields.size.times.map do |idx|
         "%s[%d] = %s[%d];" % [loc.to_js, idx, value.to_js, idx]
       end.join(" ")
     else
       "%s = %s;" % [loc.prim, value.prim]
     end
-  end
-end
-
-class JSAtExpr < BuiltinExpr
-  def to_js
-    "%s[%s]" % [@args[2].to_js, @args[3].prim]
   end
 end
 

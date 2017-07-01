@@ -1,19 +1,19 @@
 function add
-T: NumType
+T: Type
 a: T
 b: T
 return: T
 @builtin
 
 function sub
-T: NumType
+T: Type
 a: T
 b: T
 return: T
 @builtin
 
 function mul
-T: NumType
+T: Type
 a: T
 b: T
 return: T
@@ -58,24 +58,4 @@ return: T
 {
   return a.data
 }
-
-struct Arr
-T: Type
-
-function arrat
-T: Type
-a: Arr<T>
-b: Int32
-return: T
-{
-  return jsat(a=a, b=b, T=T)
-}
-
-function jsat
-T: Type
-U: Type
-a: U
-b: Int32
-return: T
-@builtin
 

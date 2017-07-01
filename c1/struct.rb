@@ -1,130 +1,88 @@
 require_relative 'expr'
+require_relative 'type'
 
-class Genparam < Expr
-  attr_reader :name, :type
-
-  def initialize(name, type)
-    @name = name
-    @type = type
+module GenSymbol
+  def scope
+    @scope ||= SymbolScope.new(file_scope)
   end
 
-  def compile_expr
-    self
+  def file_scope
+    symbol.file.scope
   end
-end
 
-class FryStruct < Expr
-  attr_reader :name, :genparams, :fields
-
-  def initialize(symbol)
-    @symbol = symbol
-    @types = {}
-
-    file_scope = symbol.file.scope
-    @scope = SymbolScope.new(file_scope)
-
-    w = symbol.new_walker
-    w.take!(:struct)
-
-    @name = w.read_ident
-
-    @genparams = []
+  def read_conparams(w)
+    result = []
     while w.tag_name == :field_name
       param_name = w.read_ident
       w.take!(:field_type)
-      type = ExprCompiler.compile(w, file_scope)
-      genparam = Genparam.new(param_name, type)
-      @genparams << genparam
-      @scope[param_name] = genparam
+      expr = ExprCompiler.compile(w, file_scope)
+      type = expr.constant_value(TypeConstant) or raise "not a type"
+      if type.is_a?(TypeType)
+        typevar = TypeVariable.new(param_name)
+        expr = TypeExpr.new(typevar)
+      else
+        raise "only type supported"
+      end
+      result << typevar
+      scope[param_name] = expr
     end
+    result
+  end
 
-    @fields = []
+  def read_fields(w)
+    result = []
     if w.take(:type_body)
       while w.tag_name == :field_name
         param_name = w.read_ident
         w.take!(:field_type)
-        type = ExprCompiler.compile(w, @scope)
-        @fields << [param_name, type]
+        expr = ExprCompiler.compile(w, scope)
+        type = expr.constant_value(TypeConstant) or raise "not a type"
+        result << [param_name, type]
       end
     end
-
-    w.take!(:struct_end)
-  end
-
-  def generic?
-    @genparams.any?
-  end
-
-  def gencall(arglist)
-    mapping = {}
-    @genparams.zip(arglist) do |param, arg|
-      if !param.type.matches?(arg)
-        raise "type mismatch"
-      end
-      mapping[param] = arg
-    end
-    GencallExpr.new(self, mapping)
-  end
-
-  def call(args)
-    gencall([]).call(args)
+    result
   end
 end
 
-class GencallExpr < Type
-  attr_reader :struct, :mapping
+class StructConstructor
+  attr_reader :name, :symbol, :conparams, :fields
 
-  def initialize(struct, mapping)
-    @struct = struct
-    @mapping = mapping
+  include GenSymbol
+
+  def initialize(symbol)
+    @symbol = symbol
+
+    w = symbol.new_walker
+    w.take!(:struct)
+    @name = w.read_ident
+    @conparams = read_conparams(w)
+    @fields = read_fields(w)
+    w.take!(:struct_end)
   end
 
-  def values
-    [@struct, @mapping]
+  def inspect
+    "#<struct:#{name}>"
   end
 
-  def hash
-    values.hash
-  end
-
-  def eql?(other)
-    other.is_a?(GencallExpr) and values.eql?(other.values)
-  end
-
-  def resolve(type)
-    if mapped = @mapping[type]
-      mapped
-    elsif type.is_a?(GencallExpr)
-      new_mapping = {}
-      type.mapping.each do |from, to|
-        new_mapping[from] = resolve(to)
+  def parse_args(args, type_resolver)
+    @fields.map do |name, type|
+      arg = args.fetch(name)
+      if arg.typeof != (resolved = type_resolver[type])
+        p [:actual, arg.typeof]
+        p [:expected, resolved]
+        raise "#{name}: type mismatch"
       end
-      GencallExpr.new(type.struct, new_mapping)
-    else
-      type
+      arg
     end
   end
-
-  def call(args)
-    # TODO: error on extra arguments
-    values = @struct.fields.map { |name, type| args.fetch(name) }
-    StructLiteral.new(self, values)
-  end
-
-  def field(expr, name)
-    @struct.fields.each_with_index do |(field_name, type), idx|
+  
+  def field_expr(base, name)
+    @fields.each_with_index do |(field_name, type), idx|
       if name == field_name
-        type = resolve(type)
-        return FieldExpr.new(expr, idx, type)
+        return FieldExpr.new(base, idx, type)
       end
     end
-
-    @mapping.each do |param, value|
-      if param.name == name
-        return value
-      end
-    end
-    raise "no such field: #{name}"
+    nil
   end
 end
 

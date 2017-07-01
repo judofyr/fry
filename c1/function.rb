@@ -12,7 +12,6 @@ class Function < Expr
     "and" => AndExpr,
     "or" => OrExpr,
     "set" => SetExpr,
-    "jsat" => JSAtExpr,
   }
 
   def initialize(symbol)
@@ -29,20 +28,27 @@ class Function < Expr
     while w.tag_name == :field_name
       param_name = w.read_ident
       w.take!(:field_type)
-      type = ExprCompiler.compile(w, @scope)
+      expr = ExprCompiler.compile(w, @scope)
+      type = expr.constant_value(TypeConstant)
       if param_name == "return"
         @return_type = type
       else
-        param = Variable.new(param_name)
-        param.assign_type(type)
+        if !type.is_a?(TypeType)
+          param = Variable.new(param_name)
+          param.assign_type(type)
+          param_symbol = param
+        else
+          param = TypeVariable.new(param_name)
+          param_symbol = TypeExpr.new(param)
+        end
         @params << param
-        @scope[param_name] = param
+        @scope[param_name] = param_symbol
       end
     end
 
     if w.take(:func_body)
       backend = @symbol.compiler.backend
-      concrete_params = @params.select { |p| !p.type.is_a?(Trait) }
+      concrete_params = @params.select { |p| p.is_a?(Variable) }
       @js = backend.new_function(@name, concrete_params, @return_type)
       @body_scope = SymbolScope.new(@scope)
       @body_scope.target = @js.root_block
@@ -59,63 +65,35 @@ class Function < Expr
     @js.symbol
   end
 
-  class CoercibleType < Type
-    attr_reader :expr
-
-    def initialize(expr)
-      @expr = expr
-    end
-
-    def type
-      @expr.typeof
-    end
-  end
+  TYPE_INFER_PRECEDENCE = Hash.new(100)
+  TYPE_INFER_PRECEDENCE[TypeVariable] = 0
 
   def call(args)
-    free = {}
-    @params.each do |p|
-      if !args.has_key?(p.name)
-        free[p] = Set.new
+    found_types = Hash.new { |h, k| h[k] = Set.new }
+
+    args.each do |arg_name, arg_expr|
+      param = @params.detect { |p| p.name == arg_name }
+      raise "unknown param: #{arg_name}" if param.nil?
+      
+      found_types[param.type] << arg_expr.typeof
+    end
+
+    # Complete type-inference
+    @params.each do |param|
+      if !args.has_key?(param.name)
+        types = found_types[param]
+        inferred = types.min_by { |t| TYPE_INFER_PRECEDENCE[t.class] }
+        if inferred.nil?
+          raise "cannot infer #{param.name}"
+        end
+        args[param.name] = TypeExpr.new(inferred)
       end
     end
 
-    args.each do |name, expr|
-      param = @params.detect { |p| p.name == name }
-      raise "no such param: #{name}" unless param
+    # TODO: type-check
+    # TODO: implicit casting
 
-      if expr.respond_to?(:coerce_to)
-        type = CoercibleType.new(expr)
-      else
-        type = expr.typeof
-      end
-      did_match = ExprCompiler.matches?(type, param.type, free)
-      raise "type error" if !did_match
-    end
-
-    inferred_args = {}
-
-    free.each do |param, set|
-      main, coercible = set.partition { |t| !t.is_a?(CoercibleType) }
-
-      if main.size == 0 && coercible.size > 0
-        main << coercible.shift
-      end
-
-      if main.size != 1
-        raise "unable to infer #{param.name}"
-      end
-
-      type = inferred_args[param] = main.first
-      coercible.each do |c|
-        c.expr.coerce_to(type)
-      end
-    end
-
-    arglist = @params.map do |param|
-      args[param.name] or
-        inferred_args[param] or
-        raise "Missing param: #{param.name}"
-    end
+    arglist = @params.map { |p| args.fetch(p.name) }
 
     @call_class.new(self, arglist)
   end

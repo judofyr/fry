@@ -14,16 +14,8 @@ module ExprCompiler
   def compile(w, scope)
     case w.tag_name
     when :number
-      num = w.read_number
-      IntegerExpr.new(num)
-    when :array
-      w.next
-      exprs = []
-      while !w.take(:array_end)
-        exprs << compile(w, scope)
-      end
-      symbol = scope["Arr"]
-      ArrayExpr.new(exprs, symbol.compile_expr)
+      value = w.read_number
+      IntExpr.new(value)
     when :var
       varname = w.read_ident
       var = Variable.new(varname)
@@ -66,27 +58,51 @@ module ExprCompiler
         if w.take(:gencall)
           args = []
           while w.take(:arg)
-            args << compile(w, scope)
+            arg_expr = compile(w, scope)
+            args << arg_expr.constant_value(TypeConstant)
           end
           w.take!(:gencall_end)
-          expr = expr.gencall(args)
+          if constructor = expr.constant_value(TypeConstructorConstant)
+            type = ConstructedType.new(constructor, args)
+            expr = TypeExpr.new(type)
+          else
+            raise "cannot instantiate"
+          end
         end
 
         if w.take(:call)
           args = {}
           while w.tag_name == :arg_name
             arg_name = w.read_ident
-            value = compile(w, scope)
-            args[arg_name] = value
+            arg_expr = compile(w, scope)
+            args[arg_name] = arg_expr
           end
           w.take!(:call_end)
-          expr = expr.call(args)
+
+          if type = expr.constant_value(TypeConstant)
+            if type.is_a?(ConstructedType)
+              values = type.constructor.parse_args(args, type)
+              expr = StructLiteral.new(type, values)
+            else
+              raise "cannot call"
+            end
+          elsif expr.is_a?(Function)
+            # TODO: Replace with constant-function
+            expr = expr.call(args)
+          else
+            raise "cannot call"
+          end
         end
 
         if w.take(:field)
           name = w.read_ident
           type = expr.typeof
-          expr = type.field(expr, name)
+          if type.is_a?(ConstructedType)
+            expr = type.constructor.field_expr(expr, name)
+            raise "cannot find: #{name}" if expr.nil?
+          else
+            raise "cannot fetch field"
+          end
         else
           break
         end
@@ -98,51 +114,13 @@ module ExprCompiler
       expr = compile(w, scope)
       expected = scope.target.return_type
 
-      if expr.respond_to?(:coerce_to)
-        expr.coerce_to(expected)
-      end
-
-      if !expr.typeof.eql?(expected)
+      if expr.typeof != expected
         raise "returned wrong type"
       end
       ReturnExpr.new(expr)
     else
       raise "Unknown tag: #{w.tag_name}"
     end
-  end
-
-  def matches?(value, target, free)
-    if value == target
-      return true
-    end
-
-    if value.is_a?(Function::CoercibleType)
-      if value.type == target
-        value.expr.coerce_to(target)
-        return true
-      end
-    end
-
-    if set = free[target]
-      set << value
-      return true
-    end
-
-    if target.is_a?(GencallExpr) && value.is_a?(GencallExpr)
-      if target.struct != value.struct
-        return false
-      end
-
-      value.mapping.each do |from, to|
-        if !matches?(to, target.mapping[from], free)
-          return false
-        end
-      end
-
-      return true
-    end
-
-    return false
   end
 end
 

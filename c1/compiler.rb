@@ -84,19 +84,30 @@ class FrySymbol
     @file.new_walker(@idx)
   end
 
+  def constructor
+    @constructor ||= case @type
+    when :struct
+      StructConstructor.new(self)
+    end
+  end
+
   def compile_expr
     @expr ||= case @type
     when :func
       Function.new(self)
     when :struct
-      FryStruct.new(self)
+      if constructor.conparams.empty?
+        TypeExpr.new(ConstructedType.new(constructor, []))
+      else
+        TypeConstructorExpr.new(constructor)
+      end
     else
       raise "Cannot compile #@type"
     end
   end
 end
 
-class Variable < Expr
+class Variable
   attr_accessor :symbol_name
   attr_reader :name
 
@@ -105,6 +116,9 @@ class Variable < Expr
   end
 
   def assign_type(type)
+    if !type.is_a?(Type)
+      raise "not a type: #{type}"
+    end
     @type = type
   end
 
@@ -112,23 +126,8 @@ class Variable < Expr
     @type or raise "Unknown type"
   end
 
-  def typeof
-    type
-  end
-
   def compile_expr
-    self
-  end
-
-  def call(args)
-    if type.is_a?(Trait)
-      value = args["a"]
-      if value.respond_to?(:coerce_to)
-        value.coerce_to(self)
-        return value
-      end
-    end
-    raise "cannot call here"
+    LoadExpr.new(self)
   end
 
   def to_js
@@ -144,11 +143,9 @@ class Compiler
     @files = {}
     @file_queue = []
     @root_scope = SymbolScope.new
-    @root_scope["Int32"] = Types.ints[32]
-    @root_scope["Bool"] = Types.ints[32]
-    @root_scope["Type"] = Types.any_trait
-    @root_scope["NumType"] = Types.num_trait
-    @root_scope["IntType"] = Types.int_trait
+    @root_scope["Int32"] = TypeExpr.new(Types.ints[32])
+    @root_scope["Bool"] = TypeExpr.new(Types.ints[32])
+    @root_scope["Type"] = TypeExpr.new(Types.type)
     @backend = JSBackend.new
   end
 
