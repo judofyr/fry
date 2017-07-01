@@ -125,7 +125,7 @@ module ExprCompiler
     when :async
       w.next
       body = scope.new_child
-      body.target.suspendable = true
+      body.target.suspends = true
       compile_block(w, body)
       AsyncExpr.new(body)
     else

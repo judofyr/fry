@@ -49,14 +49,14 @@ class Function < Expr
       end
     end
 
-    @suspendable = false
+    @suspends = false
 
     while w.tag_name == :attr
       case attr_name = w.read_ident
       when "builtin"
         @call_class = BUILTINS.fetch(@name)
       when "suspends"
-        @suspendable = true
+        @suspends = true
       when "js"
         w.take!(:attr_value)
         @js_body = w.read_string
@@ -69,7 +69,7 @@ class Function < Expr
     if has_body || @js_body
       backend = @symbol.compiler.backend
       concrete_params = @params.select { |p| p.is_a?(Variable) }
-      @js = backend.new_function(@name, concrete_params, @return_type, suspendable: @suspendable)
+      @js = backend.new_function(@name, concrete_params, @return_type, suspends: @suspends)
       if has_body
         @body_scope = SymbolScope.new(@scope)
         @body_scope.target = @js.root_block

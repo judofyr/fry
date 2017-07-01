@@ -78,9 +78,9 @@ class JSBackend
 end
 
 class JSFunction
-  attr_reader :symbol, :vargen, :return_type, :suspendable
+  attr_reader :symbol, :vargen, :return_type, :suspends
 
-  def initialize(symbol, params, return_type, suspendable: false)
+  def initialize(symbol, params, return_type, suspends: false)
     @symbol = symbol
     @params = params
     @params.each do |param|
@@ -88,11 +88,11 @@ class JSFunction
     end
     @vargen = SymbolGenerator.new("_")
     @return_type = return_type
-    @suspendable = suspendable
+    @suspends = suspends
   end
 
   def root_block
-    @root_block ||= JSBlock.new(self, suspendable: suspendable)
+    @root_block ||= JSBlock.new(self, suspends: suspends)
   end
 
   def var_decl
@@ -121,7 +121,7 @@ class JSFunction
   end
 
   def to_s
-    if @suspendable
+    if @suspends
       suspendable_function_decl
     else
       function_decl
@@ -155,18 +155,18 @@ class CodeContext
 end
 
 class JSBlock
-  attr_accessor :suspendable
+  attr_accessor :suspends
 
-  def initialize(js_function, parent: nil, suspendable: false)
+  def initialize(js_function, parent: nil, suspends: false)
     @js_function = js_function
     @parent = parent
 
-    @suspendable = suspendable
+    @suspends = suspends
     @contexts = []
   end
 
   def new_block
-    JSBlock.new(@js_function, suspendable: @suspendable)
+    JSBlock.new(@js_function, suspends: @suspends)
   end
 
   def return_type
@@ -198,7 +198,7 @@ class JSBlock
 
   def <<(expr)
     ctx = current_context
-    if suspendable
+    if suspends
       ctx << expr.to_async_js(self)
     else
       ctx << expr.to_js
@@ -206,7 +206,7 @@ class JSBlock
   end
 
   def complete
-    if suspendable
+    if suspends
       current_context << "cont()"
     end
   end
@@ -222,7 +222,7 @@ class JSBlock
   end
 
   def to_js
-    if suspendable
+    if suspends
       suspendable_function
     elsif @contexts.any?
       @contexts[0].body
