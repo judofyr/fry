@@ -81,8 +81,7 @@ module ExprCompiler
 
           if type = expr.constant_value(TypeConstant)
             if type.is_a?(ConstructedType)
-              values = type.constructor.parse_args(args, type)
-              expr = StructLiteral.new(type, values)
+              expr = type.constructor.construct(type, args)
             else
               raise "cannot call"
             end
@@ -96,9 +95,10 @@ module ExprCompiler
 
         if w.take(:field)
           name = w.read_ident
+          is_predicate = w.take(:pred)
           type = expr.typeof
           if type.is_a?(ConstructedType)
-            expr = type.constructor.field_expr(expr, name)
+            expr = type.constructor.field_expr(expr, name, is_predicate: is_predicate)
             raise "cannot find: #{name}" if expr.nil?
           else
             raise "cannot fetch field"

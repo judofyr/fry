@@ -229,6 +229,52 @@ class FieldExpr < Expr
   end
 end
 
+class UnionLiteral < Expr
+  def initialize(type, tag, value)
+    @type = type
+    @tag = tag
+    @value = value
+  end
+
+  def typeof
+    @type
+  end
+
+  def to_js
+    "[%s, %s]" % [@tag, @value.to_js]
+  end
+end
+
+class UnionFieldExpr < FieldExpr
+  def error
+    "(function() { throw new Error('wrong tag') })()"
+  end
+
+  def to_js
+    "(tmp = #{@base.to_js})[0] == #{@idx} ? tmp[1] : #{error}"
+  end
+end
+
+class UnionFieldPredicateExpr < Expr
+  def initialize(base, idx)
+    @base = base
+    @idx = idx
+  end
+
+  def typeof
+    Types.bool
+  end
+
+  def prim
+    "%s[0] == %d" % [@base.to_js, @idx]
+  end
+
+  def to_js
+    "[#{prim}]"
+  end
+end
+
+
 ## Variables
 
 class AssignExpr < Expr

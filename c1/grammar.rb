@@ -152,7 +152,11 @@ module Parser
     end
 
     let(:identcall) do
-      tag(:ident) >> ident >> gencall.maybe >> call.maybe
+      tag(:ident) >> ident >> predicate.maybe >> gencall.maybe >> call.maybe
+    end
+
+    let(:predicate) do
+      tag(:pred) >> char(??)
     end
 
     let(:gencall) do

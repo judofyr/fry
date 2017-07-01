@@ -44,7 +44,7 @@ class FryFile
       idx = w.idx
 
       case tag.name
-      when :struct, :func
+      when :struct, :union, :func
         w.next
         name = w.read_ident
         @scope[name] = FrySymbol.new(name, idx, self)
@@ -88,6 +88,8 @@ class FrySymbol
     @constructor ||= case @type
     when :struct
       StructConstructor.new(self)
+    when :union
+      UnionConstructor.new(self)
     end
   end
 
@@ -95,7 +97,7 @@ class FrySymbol
     @expr ||= case @type
     when :func
       Function.new(self)
-    when :struct
+    when :struct, :union
       if constructor.conparams.empty?
         TypeExpr.new(ConstructedType.new(constructor, []))
       else

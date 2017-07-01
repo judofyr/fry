@@ -64,10 +64,10 @@ class StructConstructor
     "#<struct:#{name}>"
   end
 
-  def parse_args(args, type_resolver)
-    @fields.map do |name, type|
+  def construct(constructed_type, args)
+    values = @fields.map do |name, type|
       arg = args.fetch(name)
-      resolved = ExprCompiler.resolve_type_recursive(type, type_resolver)
+      resolved = ExprCompiler.resolve_type_recursive(type, constructed_type)
       if arg.typeof != resolved
         p [:actual, arg.typeof]
         p [:expected, resolved]
@@ -75,12 +75,71 @@ class StructConstructor
       end
       arg
     end
+    StructLiteral.new(constructed_type, values)
   end
-  
-  def field_expr(base, name)
+
+  def field_expr(base, name, is_predicate:)
+    if is_predicate
+      raise "? doesn't make sense on structs"
+    end
+
     @fields.each_with_index do |(field_name, type), idx|
       if name == field_name
         return FieldExpr.new(base, idx, type)
+      end
+    end
+    nil
+  end
+end
+
+class UnionConstructor
+  include GenSymbol
+  attr_reader :name, :symbol, :conparams, :fields
+
+  def initialize(symbol)
+    @symbol = symbol
+
+    w = symbol.new_walker
+    w.take!(:union)
+    @name = w.read_ident
+    @conparams = read_conparams(w)
+    @fields = read_fields(w)
+    w.take!(:union_end)
+  end
+
+  def parse_args(constructed_type, args)
+    if args.size != 1
+      raise "union constructor only accepts on parameter"
+    end
+
+    name, value = *args.to_a[0]
+
+    @fields.each_with_index do |(field_name, type), idx|
+      if name == field_name
+        resolved = ExprCompiler.resolve_type_recursive(type, constructed_type)
+        if value.typeof != resolved
+          raise "type error"
+        end
+        return [idx, value]
+      end
+    end
+
+    raise "no such param: #{name}"
+  end
+
+  def construct(constructed_type, args)
+    tag, value = parse_args(constructed_type, args)
+    UnionLiteral.new(constructed_type, tag, value)
+  end
+
+  def field_expr(base, name, is_predicate:)
+    @fields.each_with_index do |(field_name, type), idx|
+      if name == field_name
+        if is_predicate
+          return UnionFieldPredicateExpr.new(base, idx)
+        else
+          return UnionFieldExpr.new(base, idx, type)
+        end
       end
     end
     nil
