@@ -47,10 +47,27 @@ class JSBackend
     func
   end
 
+  JS_INIT = <<~JS
+    var FryCoroCurrent;
+    function FryCoroDead() {
+      throw new Error('resuming dead coro');
+    }
+    function FryCoroComplete() {
+      FryCoroCurrent.cont = FryCoroDead;
+    }
+    function FryCoroResume(coro) {
+      var old = FryCoroCurrent;
+      if (old === coro) {
+        throw new Error('resuming active coro');
+      }
+      FryCoroCurrent = coro;
+      FryCoroCurrent.cont(FryCoroComplete);
+      FryCoroCurrent = old;
+    }
+  JS
+
   def to_s
-    "var FryCoroCurrent;\n" +
-    "var FryCoroDead = function() { throw new Error('resuming dead coro') };\n" +
-    "var FryCoroComplete = function() { FryCoroCurrent.cont = FryCoroDead };\n" +
+    JS_INIT +
     @functions.map(&:to_s).join("\n\n")
   end
 end
@@ -168,6 +185,10 @@ class JSBlock
 
   def cont
     new_context.symbol
+  end
+
+  def add_raw(js)
+    current_context << js
   end
 
   def <<(expr)

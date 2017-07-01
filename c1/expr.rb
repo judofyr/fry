@@ -373,18 +373,8 @@ class SuspendExpr < BuiltinExpr
 end
 
 class ResumeExpr < BuiltinExpr
-  def double_resume_error
-    "throw new Error('resuming active coro');"
-  end
-
   def to_js
-    code = []
-    code << "tmp = FryCoroCurrent;"
-    code << "FryCoroCurrent = #{@args[0].to_js};"
-    code << "if (tmp === FryCoroCurrent) #{double_resume_error}"
-    code << "FryCoroCurrent.cont(FryCoroComplete);"
-    code << "FryCoroCurrent = tmp;"
-    code.join("\n")
+    "FryCoroResume(#{@args[0].to_js});"
   end
 end
 
