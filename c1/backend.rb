@@ -40,22 +40,25 @@ class JSBackend
     @functions = []
   end
 
-  def new_function(name, params, return_type)
+  def new_function(name, *args)
     symbol = @funcgen.create(name)
-    func = JSFunction.new(symbol, params, return_type)
+    func = JSFunction.new(symbol, *args)
     @functions << func
     func
   end
 
   def to_s
+    "var FryCoroCurrent;\n" +
+    "var FryCoroDead = function() { throw new Error('resuming dead coro') };\n" +
+    "var FryCoroComplete = function() { FryCoroCurrent.cont = FryCoroDead };\n" +
     @functions.map(&:to_s).join("\n\n")
   end
 end
 
 class JSFunction
-  attr_reader :symbol, :vargen, :return_type
+  attr_reader :symbol, :vargen, :return_type, :suspendable
 
-  def initialize(symbol, params, return_type)
+  def initialize(symbol, params, return_type, suspendable: false)
     @symbol = symbol
     @params = params
     @params.each do |param|
@@ -63,10 +66,11 @@ class JSFunction
     end
     @vargen = SymbolGenerator.new("_")
     @return_type = return_type
+    @suspendable = suspendable
   end
 
   def root_block
-    @root_block ||= JSBlock.new(self)
+    @root_block ||= JSBlock.new(self, suspendable: suspendable)
   end
 
   def var_decl
@@ -78,22 +82,69 @@ class JSFunction
     end
   end
 
-  def to_s
-    "function #@symbol(#{@params.map(&:name).join(", ")}) {\n" +
+  def function_decl
+    param_string = @params.map(&:name).join(", ")
+    "function #@symbol(#{param_string}) {\n" +
       var_decl +
       @root_block.to_js +
     "\n}"
   end
+
+  def suspendable_function_decl
+    param_string = [*@params.map(&:name), "cont"].join(", ")
+    "function #@symbol(#{param_string}) {\n" +
+      var_decl +
+      @root_block.suspendable_body +
+    "\n}"
+  end
+
+  def to_s
+    if @suspendable
+      suspendable_function_decl
+    else
+      function_decl
+    end
+  end
+end
+
+class CodeContext
+  attr_reader :symbol, :code
+
+  def initialize(symbol)
+    @symbol = symbol
+    @code = [] 
+  end
+
+  def <<(code)
+    @code << code
+  end
+
+  def body
+    @code.join("\n")
+  end
+
+  def to_js
+    "function #{@symbol}() {\n#{body}\n}"
+  end
+
+  def to_s
+    "#{@symbol}"
+  end
 end
 
 class JSBlock
-  def initialize(js_function)
+  attr_accessor :suspendable
+
+  def initialize(js_function, parent: nil, suspendable: false)
     @js_function = js_function
-    @code = []
+    @parent = parent
+
+    @suspendable = suspendable
+    @contexts = []
   end
 
   def new_block
-    JSBlock.new(@js_function)
+    JSBlock.new(@js_function, suspendable: @suspendable)
   end
 
   def return_type
@@ -105,16 +156,53 @@ class JSBlock
     nil
   end
 
-  def <<(expr)
-    code = expr.to_js
-    if !expr.typeof.is_a?(VoidType)
-      code = "#{code};"
+  def new_context
+    CodeContext.new(@js_function.vargen.create("cb")).tap do |ctx|
+      @contexts << ctx
     end
-    @code << code
+  end
+
+  def current_context
+    @contexts.last || new_context
+  end
+
+  def cont
+    new_context.symbol
+  end
+
+  def <<(expr)
+    ctx = current_context
+    if suspendable
+      ctx << expr.to_async_js(self)
+    else
+      ctx << expr.to_js
+    end
+  end
+
+  def complete
+    if suspendable
+      current_context << "cont()"
+    end
+  end
+
+  def suspendable_body
+    code = @contexts.map(&:to_js)
+    code << "#{@contexts[0].symbol}()"
+    code.join("\n")
+  end
+
+  def suspendable_function
+    "(function(cont) { #{suspendable_body} })"
   end
 
   def to_js
-    @code.join("\n")
+    if suspendable
+      suspendable_function
+    elsif @contexts.any?
+      @contexts[0].body
+    else
+      ""
+    end
   end
 end
 

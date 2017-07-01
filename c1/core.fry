@@ -59,3 +59,16 @@ return: T
   return a.data
 }
 
+struct Coro
+
+function coro
+return: Coro
+@builtin
+
+function resume
+coro: Coro
+@builtin
+
+function suspend
+@builtin
+

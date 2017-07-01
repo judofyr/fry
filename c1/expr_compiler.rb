@@ -8,6 +8,7 @@ module ExprCompiler
       expr = compile(w, scope)
       scope.target << expr
     end
+    scope.target.complete
     w.next
   end
 
@@ -121,6 +122,12 @@ module ExprCompiler
         raise "returned wrong type"
       end
       ReturnExpr.new(expr)
+    when :async
+      w.next
+      body = scope.new_child
+      body.target.suspendable = true
+      compile_block(w, body)
+      AsyncExpr.new(body)
     else
       raise "Unknown tag: #{w.tag_name}"
     end

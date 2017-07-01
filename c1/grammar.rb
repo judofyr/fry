@@ -148,7 +148,7 @@ module Parser
     ## Expressions
 
     let(:expr) do
-      string / number / array / identexpr
+      string / number / array / async / identexpr
     end
 
     let(:identexpr) do
@@ -189,6 +189,10 @@ module Parser
     let(:assign) do
       space? >> char(?=) >> space? >>
       tag(:assign) >> expr
+    end
+
+    let(:async) do
+      tag(:async) >> stmt_block("async")
     end
 
     ## Statements

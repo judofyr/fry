@@ -20,6 +20,10 @@ class Expr
   def prim
     "#{to_js}[0]"
   end
+
+  def to_async_js(block)
+    to_js
+  end
 end
 
 ## Types
@@ -117,15 +121,23 @@ class CallExpr < Expr
     @arglist = arglist
   end
 
-  def to_js
-    # TODO: use the @func's concrete params
-    args = @arglist
+  def js_arglist
+    @arglist
       .zip(@func.params)
       .select { |(arg, param)| param.is_a?(Variable) }
       .map { |(arg, param)| arg }
       .map(&:to_js)
-      .join(", ")
+  end
 
+  def to_js
+    raise "#{@func.name} is suspendable" if @func.suspendable
+
+    args = js_arglist.join(", ")
+    "%s(%s)" % [@func.symbol_name, args]
+  end
+
+  def to_async_js(block)
+    args = [*js_arglist, block.cont].join(", ")
     "%s(%s)" % [@func.symbol_name, args]
   end
 
@@ -316,6 +328,73 @@ class BranchExpr < Expr
         " else if (#{cond.prim}) #{body}"
       end
     end.join
+  end
+
+  def complete?
+    cond, branch = *@cases.last
+    cond.nil?
+  end
+
+  def to_async_js(block)
+    cont = block.cont
+    parts = @cases.each_with_index.map do |(cond, branch), idx|
+      body = "{ (#{branch.target.to_js})(#{cont}) }"
+      if !cond
+        " else #{body}"
+      elsif idx.zero?
+        "if (#{cond.prim}) #{body}"
+      else
+        " else if (#{cond.prim}) #{body}"
+      end
+    end
+
+    if !complete?
+      parts << " else { #{cont}() }"
+    end
+
+    parts.join
+  end
+end
+
+class CoroExpr < BuiltinExpr
+  def to_js
+    "FryCoroCurrent"
+  end
+end
+
+class SuspendExpr < BuiltinExpr
+  def to_async_js(block)
+    "FryCoroCurrent.cont = #{block.cont};FryCoroCurrent = null;"
+  end
+
+  def to_js
+    raise "not valid here"
+  end
+end
+
+class ResumeExpr < BuiltinExpr
+  def double_resume_error
+    "throw new Error('resuming active coro');"
+  end
+
+  def to_js
+    code = []
+    code << "tmp = FryCoroCurrent;"
+    code << "FryCoroCurrent = #{@args[0].to_js};"
+    code << "if (tmp === FryCoroCurrent) #{double_resume_error}"
+    code << "FryCoroCurrent.cont(FryCoroComplete);"
+    code << "FryCoroCurrent = tmp;"
+    code.join("\n")
+  end
+end
+
+class AsyncExpr < Expr
+  def initialize(body)
+    @body = body
+  end
+
+  def to_js
+    "(tmp = #{@body.target.to_js}, tmp.cont = tmp, tmp)"
   end
 end
 

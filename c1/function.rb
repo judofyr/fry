@@ -3,7 +3,7 @@ require_relative 'expr_compiler'
 require_relative 'backend'
 
 class Function < Expr
-  attr_reader :symbol, :scope, :return_type, :params
+  attr_reader :symbol, :scope, :name, :return_type, :params, :suspendable
 
   BUILTINS = {
     "add" => AddExpr,
@@ -12,6 +12,9 @@ class Function < Expr
     "and" => AndExpr,
     "or" => OrExpr,
     "set" => SetExpr,
+    "coro" => CoroExpr,
+    "suspend" => SuspendExpr,
+    "resume" => ResumeExpr,
   }
 
   def initialize(symbol)
@@ -46,10 +49,14 @@ class Function < Expr
       end
     end
 
+    @suspendable = false
+
     while w.tag_name == :attr
       case attr_name = w.read_ident
       when "builtin"
         @call_class = BUILTINS.fetch(@name)
+      when "suspends"
+        @suspendable = true
       else
         raise "Unknown attribute: #{attr_name}"
       end
@@ -58,7 +65,7 @@ class Function < Expr
     if w.take(:func_body)
       backend = @symbol.compiler.backend
       concrete_params = @params.select { |p| p.is_a?(Variable) }
-      @js = backend.new_function(@name, concrete_params, @return_type)
+      @js = backend.new_function(@name, concrete_params, @return_type, suspendable: @suspendable)
       @body_scope = SymbolScope.new(@scope)
       @body_scope.target = @js.root_block
       @call_class = CallExpr
