@@ -122,5 +122,20 @@ module ExprCompiler
       raise "Unknown tag: #{w.tag_name}"
     end
   end
+
+  def resolve_type_recursive(type, resolver)
+    case type
+    when TypeVariable
+      if resolved = resolver.resolve_type(type)
+        return resolved
+      end
+    when ConstructedType
+      newargs = type.conargs.map do |arg|
+        resolve_type_recursive(arg, resolver)
+      end
+      return ConstructedType.new(type.constructor, newargs)
+    end
+    type
+  end
 end
 

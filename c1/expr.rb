@@ -119,14 +119,15 @@ class CallExpr < Expr
     "%s(%s)" % [@func.symbol_name, args]
   end
 
-  def typeof
-    type = @func.return_type
-    # TODO: this needs to be handled better...
+  def resolve_type(type)
     if idx = @func.params.index(type)
       @arglist[idx].constant_value(TypeConstant)
-    else
-      type
     end
+  end
+
+  def typeof
+    type = @func.return_type
+    ExprCompiler.resolve_type_recursive(type, self)
   end
 end
 
@@ -136,13 +137,15 @@ class BuiltinExpr < Expr
     @args = args
   end
 
-  def typeof
-    type = @func.return_type
+  def resolve_type(type)
     if idx = @func.params.index(type)
       @args[idx].constant_value(TypeConstant)
-    else
-      type
     end
+  end
+
+  def typeof
+    type = @func.return_type
+    ExprCompiler.resolve_type_recursive(type, self)
   end
 end
 

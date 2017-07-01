@@ -52,21 +52,11 @@ class ConstructedType < Type
     @constructor.conparams
   end
 
-  def [](type)
-    case type
-    when TypeVariable
-      conparams.zip(conargs) do |param, arg|
-        if param == type
-          return arg
-        end
-      end
-    when ConstructedType
-      newargs = type.conargs.map do |arg|
-        self[arg]
-      end
-      return ConstructedType.new(type.constructor, newargs)
+  def resolve_type(type)
+    if idx = conparams.index(type)
+      return conargs[idx]
     end
-    type
+    nil
   end
 end
 

@@ -67,7 +67,8 @@ class StructConstructor
   def parse_args(args, type_resolver)
     @fields.map do |name, type|
       arg = args.fetch(name)
-      if arg.typeof != (resolved = type_resolver[type])
+      resolved = ExprCompiler.resolve_type_recursive(type, type_resolver)
+      if arg.typeof != resolved
         p [:actual, arg.typeof]
         p [:expected, resolved]
         raise "#{name}: type mismatch"
