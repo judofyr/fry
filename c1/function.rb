@@ -3,7 +3,7 @@ require_relative 'expr_compiler'
 require_relative 'backend'
 
 class Function < Expr
-  attr_reader :symbol, :scope, :name, :return_type, :params, :suspendable
+  attr_reader :symbol, :scope, :name, :return_type, :params, :suspendable, :js_body
 
   BUILTINS = {
     "add" => AddExpr,
@@ -57,19 +57,32 @@ class Function < Expr
         @call_class = BUILTINS.fetch(@name)
       when "suspends"
         @suspendable = true
+      when "js"
+        w.take!(:attr_value)
+        @js_body = w.read_string
       else
         raise "Unknown attribute: #{attr_name}"
       end
     end
 
-    if w.take(:func_body)
+    has_body = w.take(:func_body)
+    if has_body || @js_body
       backend = @symbol.compiler.backend
       concrete_params = @params.select { |p| p.is_a?(Variable) }
       @js = backend.new_function(@name, concrete_params, @return_type, suspendable: @suspendable)
-      @body_scope = SymbolScope.new(@scope)
-      @body_scope.target = @js.root_block
+      if has_body
+        @body_scope = SymbolScope.new(@scope)
+        @body_scope.target = @js.root_block
+        ExprCompiler.compile_block(w, @body_scope)
+      else
+        raw_body = []
+        if @suspendable
+          raw_body << "cont = FryCoroWrap(cont);"
+        end
+        raw_body << @js_body
+        @js.root_block.add_raw(raw_body.join("\n"))
+      end
       @call_class = CallExpr
-      ExprCompiler.compile_block(w, @body_scope)
     end
 
     w.take!(:func_end)

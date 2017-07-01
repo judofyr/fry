@@ -16,8 +16,12 @@ module Parser
       if name
         char(?@) >> ident(name)
       else
-        char(?@) >> tag(:attr) >> ident
+        char(?@) >> tag(:attr) >> ident >> space? >> attr_value.maybe
       end
+    end
+
+    let(:attr_value) do
+      tag(:attr_value) >> string
     end
 
     ## Various types of whitespace

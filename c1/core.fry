@@ -72,3 +72,8 @@ coro: Coro
 function suspend
 @builtin
 
+function wait
+ms: Int32
+@suspends
+@js "setTimeout(cont, ms[0])"
+

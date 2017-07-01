@@ -64,6 +64,11 @@ class JSBackend
       FryCoroCurrent.cont(FryCoroComplete);
       FryCoroCurrent = old;
     }
+    function FryCoroWrap(cont) {
+      var curr = FryCoroCurrent;
+      curr.cont = cont;
+      return function() { FryCoroResume(curr); }
+    }
   JS
 
   def to_s
