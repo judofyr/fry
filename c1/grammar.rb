@@ -228,7 +228,7 @@ module Parser
     end
 
     let(:while_stmt) do
-      stmt_block("while", expr)
+      tag(:while) >> stmt_block("while", expr)
     end
 
     let(:try_stmt) do

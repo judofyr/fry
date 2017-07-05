@@ -52,6 +52,12 @@ module ExprCompiler
         end
       end
       BranchExpr.new(cases)
+    when :while
+      w.next
+      cond = compile(w, scope)
+      body = scope.new_child
+      compile_block(w, body)
+      WhileExpr.new(cond, body)
     when :ident
       name = w.read_ident
       symbol = scope[name]

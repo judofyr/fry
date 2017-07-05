@@ -400,6 +400,29 @@ class BranchExpr < Expr
   end
 end
 
+class WhileExpr < Expr
+  def initialize(cond, body)
+    @cond = cond
+    @body = body
+  end
+
+  def insert_into(block)
+    if @body.target.suspends?
+      before = block.frame
+      precond = block.new_frame
+      cond = @cond.prim(block)
+      prebody = block.frame # this *might* be the same as precond
+      after = block.new_frame
+      prebody << "if (!#{cond}) #{after}();"
+      prebody << "#{@body.target.suspendable_function}(#{precond})"
+      before << "#{precond}()"
+    else
+      cond = @cond.prim(block)
+      block.frame << "while (#{cond}) { #{@body.target.body} }"
+    end
+  end
+end
+
 class ThrowExpr < BuiltinExpr
   def insert_into(block)
     if !block.throwable
