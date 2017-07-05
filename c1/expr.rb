@@ -223,7 +223,7 @@ end
 
 class SubExpr < BuiltinExpr
   include BinaryExpr
-  def op; "+" end
+  def op; "-" end
 end
 
 class MulExpr < BuiltinExpr
