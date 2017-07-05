@@ -152,7 +152,7 @@ module Parser
     ## Expressions
 
     let(:expr) do
-      string / number / array / async / identexpr
+      string / number / array / spawn / identexpr
     end
 
     let(:identexpr) do
@@ -195,8 +195,8 @@ module Parser
       tag(:assign) >> expr
     end
 
-    let(:async) do
-      tag(:async) >> stmt_block("async")
+    let(:spawn) do
+      tag(:spawn) >> stmt_block("spawn")
     end
 
     ## Statements
@@ -217,7 +217,7 @@ module Parser
     end
 
     let(:stmt) do
-      if_stmt / while_stmt / var_stmt / return_stmt / assign_stmt / expr
+      if_stmt / while_stmt / var_stmt / return_stmt / assign_stmt / try_stmt / expr
     end
 
     let(:if_stmt) do
@@ -229,6 +229,11 @@ module Parser
 
     let(:while_stmt) do
       stmt_block("while", expr)
+    end
+
+    let(:try_stmt) do
+      tag(:try_block) >> stmt_block("try") >>
+      tag(:else) >> space? >> stmt_block("else")
     end
 
     let(:return_stmt) do

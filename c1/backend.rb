@@ -69,6 +69,10 @@ class JSBackend
       curr.cont = cont;
       return function() { FryCoroResume(curr); }
     }
+    function FryThrow(err) {
+      throw err;
+    }
+    var FryDidThrow = {};
   JS
 
   def to_s
@@ -78,9 +82,9 @@ class JSBackend
 end
 
 class JSFunction
-  attr_reader :symbol, :vargen, :return_type, :suspends
+  attr_reader :symbol, :vargen, :return_type, :suspends, :throws
 
-  def initialize(symbol, params, return_type, suspends: false)
+  def initialize(symbol, params, return_type, suspends: false, throws: false)
     @symbol = symbol
     @params = params
     @params.each do |param|
@@ -89,10 +93,23 @@ class JSFunction
     @vargen = SymbolGenerator.new("_")
     @return_type = return_type
     @suspends = suspends
+    @throws = throws
+
+    @param_names = @params.map(&:name)
+
+    if @throws
+      root_block.throwable = true
+      @param_names << "exc"
+    end
+
+    if @suspends
+      root_block.suspendable = true
+      @param_names << "ret"
+    end
   end
 
   def root_block
-    @root_block ||= JSBlock.new(self, suspends: suspends)
+    @root_block ||= JSBlock.new(self)
   end
 
   def var_decl
@@ -104,18 +121,21 @@ class JSFunction
     end
   end
 
+  def param_string
+    @param_names.join(", ")
+  end
+
   def function_decl
-    param_string = @params.map(&:name).join(", ")
     "function #@symbol(#{param_string}) {\n" +
       var_decl +
-      @root_block.to_js +
+      @root_block.body +
     "\n}"
   end
 
   def suspendable_function_decl
-    param_string = [*@params.map(&:name), "cont"].join(", ")
     "function #@symbol(#{param_string}) {\n" +
       var_decl +
+      "var cont = ret;\n" +
       @root_block.suspendable_body +
     "\n}"
   end
@@ -129,11 +149,13 @@ class JSFunction
   end
 end
 
-class CodeContext
-  attr_reader :symbol, :code
+class Frame
+  attr_reader :symbol
+  attr_accessor :next_frame_symbol
 
   def initialize(symbol)
     @symbol = symbol
+    @next_frame_symbol = "cont"
     @code = [] 
   end
 
@@ -145,28 +167,31 @@ class CodeContext
     @code.join("\n")
   end
 
-  def to_js
-    "function #{@symbol}() {\n#{body}\n}"
+  def to_function(extra = "")
+    "function #{@symbol}(val) {\n#{body} #{extra} \n}"
   end
 
   def to_s
-    "#{@symbol}"
+    @symbol
   end
 end
 
 class JSBlock
-  attr_accessor :suspends
+  attr_accessor :suspendable, :throwable
 
-  def initialize(js_function, parent: nil, suspends: false)
+  def initialize(js_function, parent: nil)
     @js_function = js_function
     @parent = parent
 
-    @suspends = suspends
-    @contexts = []
+    @suspendable = parent ? parent.suspendable : false
+    @throwable = parent ? parent.throwable : false
+    @frames = []
+
+    new_frame
   end
 
   def new_block
-    JSBlock.new(@js_function, suspends: @suspends)
+    JSBlock.new(@js_function, parent: self)
   end
 
   def return_type
@@ -178,57 +203,56 @@ class JSBlock
     nil
   end
 
-  def new_context
-    CodeContext.new(@js_function.vargen.create("cb")).tap do |ctx|
-      @contexts << ctx
+  def new_var(name)
+    @js_function.vargen.create(name)
+  end
+
+  def frame
+    @frames.last
+  end
+
+  def new_frame
+    if @frames.size > 1 and !suspendable
+      raise "not in a suspendable context"
     end
-  end
 
-  def current_context
-    @contexts.last || new_context
-  end
-
-  def cont
-    new_context.symbol
-  end
-
-  def add_raw(js)
-    current_context << js
-  end
-
-  def <<(expr)
-    ctx = current_context
-    if suspends
-      ctx << expr.to_async_js(self)
-    else
-      ctx << expr.to_js
-    end
-  end
-
-  def complete
-    if suspends
-      current_context << "cont()"
+    symbol = @js_function.vargen.create("frame")
+    Frame.new(symbol).tap do |f|
+      @frames << f
     end
   end
 
   def suspendable_body
-    code = @contexts[1..-1].map(&:to_js)
-    code << @contexts[0].body
-    code.join("\n")
+    fst, *rst = @frames
+
+    if rst.empty?
+      fst.body + "\n" + "cont()"
+    else
+      lst = rst.pop
+      code = rst.map(&:to_function)
+      code << lst.to_function("cont()")
+      code << fst.body
+      code.join("\n")
+    end
   end
 
   def suspendable_function
     "(function(cont) { #{suspendable_body} })"
   end
 
-  def to_js
-    if suspends
-      suspendable_function
-    elsif @contexts.any?
-      @contexts[0].body
-    else
-      ""
+  def suspends?
+    @frames.size > 1
+  end
+
+  def return_suspends?
+    @js_function.suspends
+  end
+
+  def body
+    if @frames.size != 1
+      raise "this block suspends"
     end
+    @frames[0].body
   end
 end
 

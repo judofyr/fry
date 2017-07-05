@@ -3,7 +3,7 @@ require_relative 'expr_compiler'
 require_relative 'backend'
 
 class Function < Expr
-  attr_reader :symbol, :scope, :name, :return_type, :params, :suspendable, :js_body
+  attr_reader :symbol, :scope, :name, :return_type, :params, :suspends, :throws, :js_body
 
   BUILTINS = {
     "add" => AddExpr,
@@ -12,6 +12,7 @@ class Function < Expr
     "and" => AndExpr,
     "or" => OrExpr,
     "set" => SetExpr,
+    "throw" => ThrowExpr,
     "coro" => CoroExpr,
     "suspend" => SuspendExpr,
     "resume" => ResumeExpr,
@@ -50,6 +51,7 @@ class Function < Expr
     end
 
     @suspends = false
+    @throws = false
 
     while w.tag_name == :attr
       case attr_name = w.read_ident
@@ -57,6 +59,8 @@ class Function < Expr
         @call_class = BUILTINS.fetch(@name)
       when "suspends"
         @suspends = true
+      when "throws"
+        @throws = true
       when "js"
         w.take!(:attr_value)
         @js_body = w.read_string
@@ -69,7 +73,7 @@ class Function < Expr
     if has_body || @js_body
       backend = @symbol.compiler.backend
       concrete_params = @params.select { |p| p.is_a?(Variable) }
-      @js = backend.new_function(@name, concrete_params, @return_type, suspends: @suspends)
+      @js = backend.new_function(@name, concrete_params, @return_type, suspends: @suspends, throws: @throws)
       if has_body
         @body_scope = SymbolScope.new(@scope)
         @body_scope.target = @js.root_block

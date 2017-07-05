@@ -17,12 +17,13 @@ class Expr
     end
   end
 
-  def prim
-    "#{to_js}[0]"
+  def prim(block)
+    "#{to_js(block)}[0]"
   end
 
-  def to_async_js(block)
-    to_js
+  def insert_into(block)
+    code = to_js(block)
+    block.frame << "#{code};"
   end
 end
 
@@ -70,11 +71,11 @@ class IntExpr < Expr
     @type
   end
 
-  def prim
+  def prim(block)
     "#{@value}"
   end
 
-  def to_js
+  def to_js(block)
     "[#{@value}]"
   end
 end
@@ -84,7 +85,7 @@ class VoidExpr < Expr
     Types.void
   end
 
-  def to_js
+  def to_js(block)
     "null"
   end
 end
@@ -98,7 +99,7 @@ class LoadExpr < Expr
     @variable.type
   end
 
-  def to_js
+  def to_js(block)
     @variable.symbol_name
   end
 end
@@ -110,8 +111,13 @@ class ReturnExpr < Expr
     @expr = expr
   end
 
-  def to_js
-    "return #{@expr.to_js};"
+  def insert_into(block)
+    value = @expr.to_js(block)
+    if block.return_suspends?
+      block.frame << "return ret(#{value});"
+    else
+      block.frame << "return #{value};"
+    end
   end
 end
 
@@ -121,24 +127,49 @@ class CallExpr < Expr
     @arglist = arglist
   end
 
-  def js_arglist
+  def js_arglist(block)
     @arglist
       .zip(@func.params)
       .select { |(arg, param)| param.is_a?(Variable) }
       .map { |(arg, param)| arg }
-      .map(&:to_js)
+      .map { |e| e.to_js(block) }
   end
 
-  def to_js
-    raise "#{@func.name} is suspendable" if @func.suspendable
+  def to_js(block)
+    args = js_arglist(block)
 
-    args = js_arglist.join(", ")
-    "%s(%s)" % [@func.symbol_name, args]
-  end
+    if @func.throws
+      if !block.throwable
+        raise "cannot throw here"
+      end
 
-  def to_async_js(block)
-    args = [*js_arglist, block.cont].join(", ")
-    "%s(%s)" % [@func.symbol_name, args]
+      args << "exc"
+    end
+
+    before = block.frame
+
+    if @func.suspends
+      after = block.new_frame
+      args << after
+    end
+
+    code = "%s(%s)" % [@func.symbol_name, args.join(", ")]
+
+    if @func.suspends
+      var = block.new_var("val")
+      before << code
+      after << "#{var} = val"
+      var
+    elsif @func.throws
+      var = block.new_var("val")
+      before << "#{var} = #{code};"
+      # This is only in case we have a throwable inside a
+      # suspendable block.
+      before << "if (#{var} === FryDidThrow) return;"
+      var
+    else
+      code
+    end
   end
 
   def resolve_type(type)
@@ -159,6 +190,10 @@ class BuiltinExpr < Expr
     @args = args
   end
 
+  def throws?
+    @func.throws
+  end
+
   def resolve_type(type)
     if idx = @func.params.index(type)
       @args[idx].constant_value(TypeConstant)
@@ -172,12 +207,12 @@ class BuiltinExpr < Expr
 end
 
 module BinaryExpr
-  def prim
-    "(%s %s %s)" % [@args[-2].prim, op, @args[-1].prim]
+  def prim(block)
+    "(%s %s %s)" % [@args[-2].prim(block), op, @args[-1].prim(block)]
   end
 
-  def to_js
-    "[%s %s %s]" % [@args[-2].prim, op, @args[-1].prim]
+  def to_js(block)
+    "[%s %s %s]" % [@args[-2].prim(block), op, @args[-1].prim(block)]
   end
 end
 
@@ -207,15 +242,15 @@ class OrExpr < BuiltinExpr
 end
 
 class SetExpr < BuiltinExpr
-  def to_js
+  def to_js(block)
     type_expr, loc, value = *@args
     type = type_expr.constant_value(TypeConstant)
     if type.is_a?(ConstructedType)
       type.constructor.fields.size.times.map do |idx|
-        "%s[%d] = %s[%d];" % [loc.to_js, idx, value.to_js, idx]
+        "%s[%d] = %s[%d];" % [loc.to_js(block), idx, value.to_js(block), idx]
       end.join(" ")
     else
-      "%s = %s;" % [loc.prim, value.prim]
+      "%s = %s;" % [loc.prim(block), value.prim(block)]
     end
   end
 end
@@ -230,8 +265,8 @@ class StructLiteral < Expr
     @type
   end
 
-  def to_js
-    "[%s]" % @values.map { |f| f.to_js }.join(", ")
+  def to_js(block)
+    "[%s]" % @values.map { |f| f.to_js(block) }.join(", ")
   end
 end
 
@@ -246,8 +281,8 @@ class FieldExpr < Expr
     @type
   end
 
-  def to_js
-    "%s[%d]" % [@base.to_js, @idx]
+  def to_js(block)
+    "%s[%d]" % [@base.to_js(block), @idx]
   end
 end
 
@@ -262,8 +297,8 @@ class UnionLiteral < Expr
     @type
   end
 
-  def to_js
-    "[%s, %s]" % [@tag, @value.to_js]
+  def to_js(block)
+    "[%s, %s]" % [@tag, @value.to_js(block)]
   end
 end
 
@@ -272,8 +307,8 @@ class UnionFieldExpr < FieldExpr
     "(function() { throw new Error('wrong tag') })()"
   end
 
-  def to_js
-    "(tmp = #{@base.to_js})[0] == #{@idx} ? tmp[1] : #{error}"
+  def to_js(block)
+    "(tmp = #{@base.to_js(block)})[0] == #{@idx} ? tmp[1] : #{error}"
   end
 end
 
@@ -287,11 +322,11 @@ class UnionFieldPredicateExpr < Expr
     Types.bool
   end
 
-  def prim
-    "%s[0] == %d" % [@base.to_js, @idx]
+  def prim(block)
+    "%s[0] == %d" % [@base.to_js(block), @idx]
   end
 
-  def to_js
+  def to_js(block)
     "[#{prim}]"
   end
 end
@@ -305,8 +340,10 @@ class AssignExpr < Expr
     @value = value
   end
 
-  def to_js
-    "#{@variable.symbol_name} = #{@value.to_js};"
+  def insert_into(block)
+    code = "#{@variable.symbol_name} = #{@value.to_js(block)};"
+    block.frame << code
+    block.frame << "console.log(#{@variable.symbol_name});"
   end
 end
 
@@ -317,42 +354,84 @@ class BranchExpr < Expr
     @cases = cases
   end
 
-  def to_js
-    @cases.each_with_index.map do |(cond, branch), idx|
-      body = "{\n#{branch.target.to_js}\n}"
+  def insert_into(block)
+    sus = suspends?
+
+    # First evaluate all the conds
+
+    conds = @cases.map { |cond, branch| cond && cond.prim(block) }
+
+    before = block.frame
+
+    if sus
+      after = block.new_frame
+    end
+
+    # TODO: async!
+    code = @cases.each_with_index.map do |(cond, branch), idx|
+      if sus
+        body = "{\n#{branch.target.suspendable_function}(#{after})\n}"
+      else
+        body = "{\n#{branch.target.body}\n}"
+      end
+
       if !cond
         " else #{body}"
       elsif idx.zero?
-        "if (#{cond.prim}) #{body}"
+        "if (#{conds[idx]}) #{body}"
       else
-        " else if (#{cond.prim}) #{body}"
+        " else if (#{conds[idx]}) #{body}"
       end
     end.join
+
+    if sus && !complete?
+      code << " else { #{after}() }"
+    end
+
+    before << code
+  end
+
+  def suspends?
+    @cases.any? { |cond, branch| branch.target.suspends? }
   end
 
   def complete?
     cond, branch = *@cases.last
     cond.nil?
   end
+end
 
-  def to_async_js(block)
-    cont = block.cont
-    parts = @cases.each_with_index.map do |(cond, branch), idx|
-      body = "{ (#{branch.target.to_js})(#{cont}) }"
-      if !cond
-        " else #{body}"
-      elsif idx.zero?
-        "if (#{cond.prim}) #{body}"
-      else
-        " else if (#{cond.prim}) #{body}"
-      end
+class ThrowExpr < BuiltinExpr
+  def insert_into(block)
+    if !block.throwable
+      raise "cannot throw here"
+    end
+    block.frame << "exc(new Error); return FryDidThrow;"
+  end
+end
+
+class TryBlockExpr < Expr
+  def initialize(body, handler)
+    @body = body
+    @handler = handler
+  end
+
+  def insert_into(block)
+    if block.suspends?
+      return async_insert_into(block)
     end
 
-    if !complete?
-      parts << " else { #{cont}() }"
-    end
+    before = block.frame
+    try = "try { #{@body.target.body} }"
+    cat = "catch (err) { #{@handler.target.body} }"
+    before << "(function(exc) { #{try} #{cat} })(FryThrow)"
+  end
 
-    parts.join
+  def async_insert_into(block)
+    before = block.frame
+    after = block.new_frame
+    before << "function exc(err) { #{@handler.target.suspendable_function}(#{after}) }"
+    before << "#{@body.target.suspendable_function}(#{after})"
   end
 end
 
@@ -363,28 +442,28 @@ class CoroExpr < BuiltinExpr
 end
 
 class SuspendExpr < BuiltinExpr
-  def to_async_js(block)
-    "FryCoroCurrent.cont = #{block.cont};FryCoroCurrent = null;"
-  end
-
-  def to_js
-    raise "not valid here"
+  def insert_into(block)
+    before = block.frame
+    after = block.new_frame
+    code = "FryCoroCurrent.cont = #{after};FryCoroCurrent = null;"
+    before << code
   end
 end
 
 class ResumeExpr < BuiltinExpr
-  def to_js
-    "FryCoroResume(#{@args[0].to_js});"
+  def insert_into(block)
+    code = "FryCoroResume(#{@args[0].to_js(block)});"
+    block.frame << code
   end
 end
 
-class AsyncExpr < Expr
+class SpawnExpr < Expr
   def initialize(body)
     @body = body
   end
 
-  def to_js
-    "(tmp = #{@body.target.to_js}, tmp.cont = tmp, tmp)"
+  def to_js(block)
+    "{cont:#{@body.target.suspendable_function}}"
   end
 end
 

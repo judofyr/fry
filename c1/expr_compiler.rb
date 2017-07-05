@@ -6,9 +6,8 @@ module ExprCompiler
   def compile_block(w, scope)
     until w.tag_name == :block_end
       expr = compile(w, scope)
-      scope.target << expr
+      expr.insert_into(scope.target)
     end
-    scope.target.complete
     w.next
   end
 
@@ -122,12 +121,21 @@ module ExprCompiler
         raise "returned wrong type"
       end
       ReturnExpr.new(expr)
-    when :async
+    when :spawn
       w.next
       body = scope.new_child
-      body.target.suspends = true
+      body.target.suspendable = true
       compile_block(w, body)
-      AsyncExpr.new(body)
+      SpawnExpr.new(body)
+    when :try_block
+      w.next
+      body = scope.new_child
+      body.target.throwable = true
+      compile_block(w, body)
+      w.take!(:else)
+      handler = scope.new_child
+      compile_block(w, handler)
+      TryBlockExpr.new(body, handler)
     else
       raise "Unknown tag: #{w.tag_name}"
     end

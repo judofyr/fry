@@ -59,6 +59,10 @@ return: T
   return a.data
 }
 
+function throw
+@builtin
+@throws
+
 struct Coro
 
 function coro
@@ -71,6 +75,7 @@ coro: Coro
 
 function suspend
 @builtin
+@suspends
 
 function wait
 ms: Int32
