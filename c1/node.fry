@@ -1,0 +1,39 @@
+struct Server
+struct IncomingMessage
+struct ServerResponse
+
+struct RequestEvent
+{
+  req: IncomingMessage
+  res: ServerResponse
+}
+
+struct EventBus
+T: Type
+
+function bus
+T: Type
+return: EventBus<T>
+@js "return FryEventBus();"
+
+function buspull
+T: Type
+bus: EventBus<T>
+return: T
+@suspends
+@js "return bus.pause(cont);"
+
+function createServer
+bus: EventBus<RequestEvent>
+return: Server
+@js "return require('http').createServer(bus)"
+
+function listen
+server: Server
+port: Int32
+@js "server.listen(port[0]);"
+
+function endHelloWorld
+res: ServerResponse
+@js "res.end('Hello world!')"
+

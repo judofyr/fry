@@ -73,6 +73,23 @@ class JSBackend
       throw err;
     }
     var FryDidThrow = {};
+
+    var slice = Array.prototype.slice;
+
+    function FryEventBus() {
+      var handler;
+      var bus = function() {
+        var args = slice.apply(arguments);
+        if (!handler) {
+          throw new Error("no coro is pulling");
+        }
+        handler(args);
+      };
+      bus.pause = function(cont) {
+        handler = cont;
+      };
+      return bus;
+    }
   JS
 
   def to_s
