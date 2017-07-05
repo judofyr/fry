@@ -106,7 +106,9 @@ class Function < Expr
       param = @params.detect { |p| p.name == arg_name }
       raise "unknown param: #{arg_name}" if param.nil?
       
-      found_types[param.type] << arg_expr.typeof
+      if !param.is_a?(TypeVariable)
+        found_types[param.type] << arg_expr.typeof
+      end
     end
 
     # Complete type-inference
