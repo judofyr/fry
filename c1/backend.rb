@@ -83,7 +83,9 @@ class JSBackend
         if (!handler) {
           throw new Error("no coro is pulling");
         }
-        handler(args);
+        var curr = handler;
+        handler = null;
+        curr(args);
       };
       bus.pause = function(cont) {
         handler = cont;
