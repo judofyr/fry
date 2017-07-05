@@ -343,7 +343,6 @@ class AssignExpr < Expr
   def insert_into(block)
     code = "#{@variable.symbol_name} = #{@value.to_js(block)};"
     block.frame << code
-    block.frame << "console.log(#{@variable.symbol_name});"
   end
 end
 
