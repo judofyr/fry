@@ -55,19 +55,19 @@ class JSBackend
     function FryCoroComplete() {
       FryCoroCurrent.cont = FryCoroDead;
     }
-    function FryCoroResume(coro) {
+    function FryCoroResume(coro, val) {
       var old = FryCoroCurrent;
       if (old === coro) {
         throw new Error('resuming active coro');
       }
       FryCoroCurrent = coro;
-      FryCoroCurrent.cont(FryCoroComplete);
+      FryCoroCurrent.cont(val);
       FryCoroCurrent = old;
     }
     function FryCoroWrap(cont) {
       var curr = FryCoroCurrent;
       curr.cont = cont;
-      return function() { FryCoroResume(curr); }
+      return function(val) { FryCoroResume(curr, val); }
     }
     function FryThrow(err) {
       throw err;

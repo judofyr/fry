@@ -462,7 +462,8 @@ class SpawnExpr < Expr
   end
 
   def to_js(block)
-    "{cont:#{@body.target.suspendable_function}}"
+    cont = "function() { #{@body.target.suspendable_function}(FryCoroComplete) }"
+    "{cont:#{cont}}"
   end
 end
 
