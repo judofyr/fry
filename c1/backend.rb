@@ -226,11 +226,11 @@ class JSBlock
     fst, *rst = @frames
 
     if rst.empty?
-      fst.body + "\n" + "cont()"
+      fst.body + "\n" + "return cont()"
     else
       lst = rst.pop
       code = rst.map(&:to_function)
-      code << lst.to_function("cont()")
+      code << lst.to_function("return cont()")
       code << fst.body
       code.join("\n")
     end

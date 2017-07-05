@@ -157,7 +157,7 @@ class CallExpr < Expr
 
     if @func.suspends
       var = block.new_var("val")
-      before << code
+      before << "return #{code};"
       after << "#{var} = val"
       var
     elsif @func.throws
@@ -406,7 +406,7 @@ class ThrowExpr < BuiltinExpr
     if !block.throwable
       raise "cannot throw here"
     end
-    block.frame << "exc(new Error); return FryDidThrow;"
+    block.frame << "return exc(new Error);"
   end
 end
 
@@ -430,7 +430,7 @@ class TryBlockExpr < Expr
   def async_insert_into(block)
     before = block.frame
     after = block.new_frame
-    before << "function exc(err) { #{@handler.target.suspendable_function}(#{after}) }"
+    before << "function exc(err) { #{@handler.target.suspendable_function}(#{after}); return FryDidThrow; }"
     before << "#{@body.target.suspendable_function}(#{after})"
   end
 end
