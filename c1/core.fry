@@ -80,5 +80,5 @@ function suspend
 function wait
 ms: Int32
 @suspends
-@js "setTimeout(cont, ms[0])"
+@js "return setTimeout(cont, ms[0]);"
 

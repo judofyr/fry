@@ -80,11 +80,11 @@ class Function < Expr
         ExprCompiler.compile_block(w, @body_scope)
       else
         raw_body = []
-        if @suspendable
+        if @suspends
           raw_body << "cont = FryCoroWrap(cont);"
         end
         raw_body << @js_body
-        @js.root_block.add_raw(raw_body.join("\n"))
+        @js.root_block.frame << raw_body.join("\n")
       end
       @call_class = CallExpr
     end
