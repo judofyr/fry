@@ -40,6 +40,10 @@ class TypeExpr < Expr
     self
   end
 
+  def static?
+    true
+  end
+
   def constant
     @constant ||= TypeConstant.new(@type)
   end
@@ -328,6 +332,54 @@ class UnionFieldPredicateExpr < Expr
 
   def to_js(block)
     "[#{prim}]"
+  end
+end
+
+class ObjectExpr < Expr
+  def initialize(trait_type, impls, closure)
+    @trait_type = trait_type
+    @impls = impls
+    @closure = closure
+  end
+
+  def to_js(block)
+    method_fields = @impls.map do |name, fn|
+      "#{name}: #{fn.symbol}"
+    end
+    closure_fields = @closure.locals.map do |_, local|
+      "#{local.variable.symbol_name}: #{local.expr.to_js(block)}"
+    end
+    fields = method_fields + closure_fields
+    "{#{fields.join(', ')}}"
+  end
+
+  def typeof
+    @trait_type
+  end
+end
+
+class ObjectFieldExpr < Expr
+  def initialize(base, decl)
+    @base = base
+    @decl = decl
+  end
+
+  def call(args)
+    args = @decl.expand_args(args)
+    ObjectCallExpr.new(@base, @decl, args)
+  end
+end
+
+class ObjectCallExpr < Expr
+  def initialize(base, decl, args)
+    @base = base
+    @decl = decl
+    @args = args
+  end
+
+  def to_js(block)
+    argstring = @args.map { |x| x.to_js(block) }
+    "%s.%s(%s)" % [@base.to_js(block), @decl.name, argstring.join(", ")]
   end
 end
 

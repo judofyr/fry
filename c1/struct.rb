@@ -149,3 +149,48 @@ class UnionConstructor
   end
 end
 
+class TraitConstructor
+  include GenSymbol
+  attr_reader :name, :symbol, :conparams, :functions
+
+  def initialize(symbol)
+    @symbol = symbol
+
+    w = symbol.new_walker
+    w.take!(:trait)
+    @name = w.read_ident
+    @conparams = read_conparams(w)
+    @functions = {}
+
+    w.take!(:trait_body)
+
+    while w.tag_name == :func
+      decl = FunctionDecl.new(w, scope)
+      @functions[decl.name] = decl
+      w.take!(:func_end)
+    end
+
+    w.take!(:trait_end)
+  end
+
+  def backend
+    @symbol.compiler.backend
+  end
+
+  def setup(type, name, scope)
+    decl = @functions.fetch(name)
+    impl_scope = scope.new_child(ImplementScope)
+    impl_scope.type = type
+    impl_scope.decl = decl
+    syms = impl_scope.new_child
+    impl = backend.new_function(decl.name, decl.params, decl.return_type)
+    syms.target = impl.root_block
+    return impl, syms
+  end
+
+  def field_expr(base, name, is_predicate: false)
+    if decl = @functions[name]
+      ObjectFieldExpr.new(base, decl)
+    end
+  end
+end

@@ -2,29 +2,12 @@ require 'set'
 require_relative 'expr_compiler'
 require_relative 'backend'
 
-class Function < Expr
-  attr_reader :symbol, :scope, :name, :return_type, :params, :suspends, :throws, :js_body
+class FunctionDecl
+  attr_reader :name, :scope, :params, :return_type, :throws, :suspends, :js_body, :builtin
 
-  BUILTINS = {
-    "add" => AddExpr,
-    "sub" => SubExpr,
-    "mul" => MulExpr,
-    "and" => AndExpr,
-    "or" => OrExpr,
-    "set" => SetExpr,
-    "throw" => ThrowExpr,
-    "coro" => CoroExpr,
-    "suspend" => SuspendExpr,
-    "resume" => ResumeExpr,
-  }
-
-  def initialize(symbol)
-    @symbol = symbol
-
-    @scope = SymbolScope.new(symbol.file.scope)
-
-    w = symbol.new_walker
+  def initialize(w, parent_scope)
     w.take!(:func)
+    @scope = SymbolScope.new(parent_scope)
     @name = w.read_ident # func_name
     @return_type = Types.void
 
@@ -56,7 +39,7 @@ class Function < Expr
     while w.tag_name == :attr
       case attr_name = w.read_ident
       when "builtin"
-        @call_class = BUILTINS.fetch(@name)
+        @builtin = true
       when "suspends"
         @suspends = true
       when "throws"
@@ -69,41 +52,13 @@ class Function < Expr
       end
     end
 
-    has_body = w.take(:func_body)
-    if has_body || @js_body
-      backend = @symbol.compiler.backend
-      concrete_params = @params.select { |p| p.is_a?(Variable) }
-      @js = backend.new_function(@name, concrete_params, @return_type, suspends: @suspends, throws: @throws)
-      if has_body
-        @body_scope = SymbolScope.new(@scope)
-        @body_scope.target = @js.root_block
-        ExprCompiler.compile_block(w, @body_scope)
-      else
-        raw_body = []
-        if @suspends
-          raw_body << "cont = FryCoroWrap(cont);"
-        end
-        raw_body << @js_body
-        @js.root_block.frame << raw_body.join("\n")
-      end
-      @call_class = CallExpr
-    end
-
-    w.take!(:func_end)
   end
 
-  def symbol_name
-    @js.symbol
-  end
-
-  TYPE_INFER_PRECEDENCE = Hash.new(100)
-  TYPE_INFER_PRECEDENCE[TypeVariable] = 0
-
-  def call(args)
+  def expand_args(args)
     found_types = Hash.new { |h, k| h[k] = Set.new }
 
     args.each do |arg_name, arg_expr|
-      param = @params.detect { |p| p.name == arg_name }
+      param = params.detect { |p| p.name == arg_name }
       raise "unknown param: #{arg_name}" if param.nil?
       
       if !param.is_a?(TypeVariable)
@@ -112,7 +67,7 @@ class Function < Expr
     end
 
     # Complete type-inference
-    @params.each do |param|
+    params.each do |param|
       if !args.has_key?(param.name)
         types = found_types[param]
         inferred = types.min_by { |t| TYPE_INFER_PRECEDENCE[t.class] }
@@ -126,8 +81,70 @@ class Function < Expr
     # TODO: type-check
     # TODO: implicit casting
 
-    arglist = @params.map { |p| args.fetch(p.name) }
+    arglist = params.map { |p| args.fetch(p.name) }
+  end
+end
 
+class Function < Expr
+  attr_reader :symbol, :decl
+
+  [:name, :scope, :params, :return_type, :throws, :suspends, :js_body, :builtin].each do |name|
+    define_method(name) do @decl.send(name) end
+  end
+
+  BUILTINS = {
+    "add" => AddExpr,
+    "sub" => SubExpr,
+    "mul" => MulExpr,
+    "and" => AndExpr,
+    "or" => OrExpr,
+    "set" => SetExpr,
+    "throw" => ThrowExpr,
+    "coro" => CoroExpr,
+    "suspend" => SuspendExpr,
+    "resume" => ResumeExpr,
+  }
+
+  def initialize(symbol)
+    @symbol = symbol
+
+    w = symbol.new_walker
+    @decl = FunctionDecl.new(w, symbol.file.scope)
+
+    has_body = w.take(:func_body)
+    if has_body || decl.js_body
+      backend = @symbol.compiler.backend
+      concrete_params = params.select { |p| p.is_a?(Variable) }
+      @js = backend.new_function(name, concrete_params, return_type, suspends: suspends, throws: throws)
+      if has_body
+        @body_scope = SymbolScope.new(scope)
+        @body_scope.target = @js.root_block
+        ExprCompiler.compile_block(w, @body_scope)
+      else
+        raw_body = []
+        if suspends
+          raw_body << "cont = FryCoroWrap(cont);"
+        end
+        raw_body << js_body
+        @js.root_block.frame << raw_body.join("\n")
+      end
+      @call_class = CallExpr
+    elsif decl.builtin
+      @call_class = BUILTINS.fetch(name)
+    end
+
+    w.take!(:func_end)
+  end
+
+  def symbol_name
+    @js.symbol
+  end
+
+  TYPE_INFER_PRECEDENCE = Hash.new(100)
+  TYPE_INFER_PRECEDENCE[TypeVariable] = 0
+
+  def call(args)
+    arglist = @decl.expand_args(args)
     @call_class.new(self, arglist)
   end
 end

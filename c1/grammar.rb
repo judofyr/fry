@@ -73,7 +73,7 @@ module Parser
     ## Toplevel statements
 
     let(:toplevel) do
-      include_stmt / func / struct / union
+      include_stmt / func / struct / union / trait
     end
 
     let(:toplevels) do
@@ -149,10 +149,25 @@ module Parser
       char(?})
     end
 
+    let(:trait) do
+      tag(:trait) >>
+      ident("trait") >> space? >> type_name >>
+      field.repeat >>
+      trait_body >>
+      tag(:trait_end)
+    end
+
+    let(:trait_body) do
+      tag(:trait_body) >>
+      char(?{) >> spaceline.repeat >>
+      (space? >> func >> spaceline.repeat).repeat >>
+      char(?}) 
+    end
+
     ## Expressions
 
     let(:expr) do
-      string / number / array / spawn / identexpr
+      string / number / array / spawn / object / identexpr
     end
 
     let(:identexpr) do
@@ -197,6 +212,23 @@ module Parser
 
     let(:spawn) do
       tag(:spawn) >> stmt_block("spawn")
+    end
+
+    let(:object) do
+      tag(:object) >>
+      ident("object") >> space? >>
+      expr >> space? >>
+      char(?{) >>
+      spaceline.repeat >>
+      (object_impl >> spaceline.repeat).repeat >>
+      space? >> char(?})
+    end
+
+    let(:object_impl) do
+      tag(:implement) >> space? >>
+      ident("implement") >> space? >>
+      tag(:implement_name) >> ident >> spaceline >>
+      space? >> char(?{) >> block >> char(?})
     end
 
     ## Statements

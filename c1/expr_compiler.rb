@@ -97,6 +97,8 @@ module ExprCompiler
           elsif expr.is_a?(Function)
             # TODO: Replace with constant-function
             expr = expr.call(args)
+          elsif expr.is_a?(ObjectFieldExpr)
+            expr = expr.call(args)
           else
             raise "cannot call"
           end
@@ -142,6 +144,23 @@ module ExprCompiler
       handler = scope.new_child
       compile_block(w, handler)
       TryBlockExpr.new(body, handler)
+    when :object
+      w.next
+      trait_expr = compile(w, scope)
+      trait = trait_expr.constant_value(TypeConstant)
+      impls = {}
+
+      closure = ClosureScope.new
+      closure.env = scope
+
+      while w.take(:implement)
+        name = w.read_ident
+        fn, impl_scope = trait.constructor.setup(trait, name, closure)
+        compile_block(w, impl_scope)
+        impls[name] = fn
+      end
+
+      ObjectExpr.new(trait, impls, closure)
     else
       raise "Unknown tag: #{w.tag_name}"
     end
