@@ -360,9 +360,13 @@ class ObjectExpr < Expr
   end
 
   def to_js(block)
-    param_fields = @constructor.params.zip(@args).map do |param, arg|
-      "#{param.name}: #{arg.to_js(block)}"
-    end
+    param_fields = @constructor.params
+      .zip(@args)
+      .select { |param, arg| param.is_a?(Variable) }
+      .map do |param, arg|
+        "#{param.name}: #{arg.to_js(block)}"
+      end
+
     method_fields = @constructor.functions.map do |name, js|
       "#{name}: #{js.symbol}"
     end

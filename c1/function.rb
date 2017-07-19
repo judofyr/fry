@@ -170,7 +170,9 @@ class Constructor < Expr
 
     @decl.params.each do |param|
       # ehm. this is a bit hacky
-      param.symbol_name = "this.#{param.name}"
+      if param.is_a?(Variable)
+        param.symbol_name = "this.#{param.name}"
+      end
     end
 
     while w.take(:implement)
