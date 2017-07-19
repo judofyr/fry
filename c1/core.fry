@@ -37,28 +37,6 @@ a: T
 b: T
 @builtin
 
-struct Ref
-T: Type
-{
-  data: T
-}
-
-function ref
-T: Type
-a: T
-return: Ref<T>
-{
-  return Ref<T>(data=a)
-}
-
-function deref
-T: Type
-a: Ref<T>
-return: T
-{
-  return a.data
-}
-
 function throw
 @builtin
 @throws
