@@ -164,7 +164,7 @@ class TraitConstructor
 
     w.take!(:trait_body)
 
-    while w.tag_name == :func
+    while w.take(:func)
       decl = FunctionDecl.new(w, scope)
       @functions[decl.name] = decl
       w.take!(:func_end)

@@ -335,26 +335,43 @@ class UnionFieldPredicateExpr < Expr
   end
 end
 
-class ObjectExpr < Expr
-  def initialize(trait_type, impls, closure)
-    @trait_type = trait_type
-    @impls = impls
-    @closure = closure
+class SelfExpr < Expr
+  def initialize(type)
+    @type = type
+  end
+
+  def compile_expr
+    self
+  end
+
+  def typeof
+    @type
   end
 
   def to_js(block)
-    method_fields = @impls.map do |name, fn|
-      "#{name}: #{fn.symbol}"
+    "this"
+  end
+end
+
+class ObjectExpr < Expr
+  def initialize(constructor, args)
+    @constructor = constructor
+    @args = args
+  end
+
+  def to_js(block)
+    param_fields = @constructor.params.zip(@args).map do |param, arg|
+      "#{param.name}: #{arg.to_js(block)}"
     end
-    closure_fields = @closure.locals.map do |_, local|
-      "#{local.variable.symbol_name}: #{local.expr.to_js(block)}"
+    method_fields = @constructor.functions.map do |name, js|
+      "#{name}: #{js.symbol}"
     end
-    fields = method_fields + closure_fields
+    fields = method_fields + param_fields
     "{#{fields.join(', ')}}"
   end
 
   def typeof
-    @trait_type
+    @constructor.return_type
   end
 end
 
@@ -380,6 +397,10 @@ class ObjectCallExpr < Expr
   def to_js(block)
     argstring = @args.map { |x| x.to_js(block) }
     "%s.%s(%s)" % [@base.to_js(block), @decl.name, argstring.join(", ")]
+  end
+
+  def typeof
+    @decl.return_type
   end
 end
 

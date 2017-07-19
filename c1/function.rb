@@ -6,7 +6,6 @@ class FunctionDecl
   attr_reader :name, :scope, :params, :return_type, :throws, :suspends, :js_body, :builtin
 
   def initialize(w, parent_scope)
-    w.take!(:func)
     @scope = SymbolScope.new(parent_scope)
     @name = w.read_ident # func_name
     @return_type = Types.void
@@ -54,12 +53,15 @@ class FunctionDecl
 
   end
 
+  TYPE_INFER_PRECEDENCE = Hash.new(100)
+  TYPE_INFER_PRECEDENCE[TypeVariable] = 0
+
   def expand_args(args)
     found_types = Hash.new { |h, k| h[k] = Set.new }
 
     args.each do |arg_name, arg_expr|
       param = params.detect { |p| p.name == arg_name }
-      raise "unknown param: #{arg_name}" if param.nil?
+      raise "#{@name}: unknown param: #{arg_name}" if param.nil?
       
       if !param.is_a?(TypeVariable)
         found_types[param.type] << arg_expr.typeof
@@ -109,6 +111,7 @@ class Function < Expr
     @symbol = symbol
 
     w = symbol.new_walker
+    w.take!(:func)
     @decl = FunctionDecl.new(w, symbol.file.scope)
 
     has_body = w.take(:func_body)
@@ -140,12 +143,66 @@ class Function < Expr
     @js.symbol
   end
 
-  TYPE_INFER_PRECEDENCE = Hash.new(100)
-  TYPE_INFER_PRECEDENCE[TypeVariable] = 0
-
   def call(args)
     arglist = @decl.expand_args(args)
     @call_class.new(self, arglist)
+  end
+end
+
+class Constructor < Expr
+  attr_reader :functions
+
+  def initialize(symbol)
+    @symbol = symbol
+
+    w = symbol.new_walker
+    w.take!(:constructor)
+    @decl = FunctionDecl.new(w, symbol.file.scope)
+    @impls = {}
+
+    trait = return_type.constructor
+    if !trait.is_a?(TraitConstructor)
+      raise "#{@decl.name}: trait return type required"
+    end
+
+    scope = @decl.scope
+    @functions = {}
+
+    @decl.params.each do |param|
+      # ehm. this is a bit hacky
+      param.symbol_name = "this.#{param.name}"
+    end
+
+    while w.take(:implement)
+      name = w.read_ident
+      decl = trait.functions.fetch(name)
+      js = backend.new_function(name, decl.params, decl.return_type)
+      impl_scope = ImplementScope.new(scope)
+      impl_scope.decl = decl
+      body_scope = SymbolScope.new(impl_scope)
+      body_scope["self"] = SelfExpr.new(return_type)
+      body_scope.target = js.root_block
+      ExprCompiler.compile_block(w, body_scope)
+      @functions[name] = js
+    end
+    w.take!(:constructor_end)
+  end
+
+  def backend
+    @symbol.compiler.backend
+  end
+
+  def return_type
+    @decl.return_type
+  end
+
+  def params
+    @decl.params
+  end
+
+  def call(args)
+    arglist = @decl.expand_args(args)
+    ObjectExpr.new(self, arglist)
   end
 end
 
