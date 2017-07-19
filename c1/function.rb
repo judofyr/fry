@@ -178,7 +178,8 @@ class Constructor < Expr
     while w.take(:implement)
       name = w.read_ident
       decl = trait.functions.fetch(name)
-      js = backend.new_function(name, decl.params, decl.return_type)
+      impl_return = ExprCompiler.resolve_type_recursive(decl.return_type, return_type)
+      js = backend.new_function(name, decl.params, impl_return)
       impl_scope = ImplementScope.new(scope)
       impl_scope.decl = decl
       body_scope = SymbolScope.new(impl_scope)
