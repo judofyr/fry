@@ -13,12 +13,31 @@ class FryFile
     @path = path
     @included_files = []
     @compiler = compiler
+    @module_owner = nil
 
     @is_parsed = false
 
     @include_scope = IncludeScope.new(@compiler.root_scope)
     @include_scope.included_files = @included_files
     @scope = SymbolScope.new(@include_scope)
+  end
+
+  def assign_module_owner(file)
+    if @module_owner == file
+      # do nothing
+    elsif @module_owner.nil?
+      @module_owner = file
+    else
+      raise "#{path} is included in two modules"
+    end
+  end
+
+  def mark_module
+    assign_module_owner(self)
+  end
+
+  def module_owner
+    @module_owner or raise "Module owner not set"
   end
 
   def dir
@@ -55,7 +74,17 @@ class FryFile
         w.next
         included_path = w.read_string
         full_path = dir + (included_path + ".fry")
-        @included_files << @compiler.file(full_path.to_s)
+        file = @compiler.file(full_path)
+        file.assign_module_owner(module_owner)
+        @included_files << file
+      when :import
+        w.next
+        module_name = w.read_ident
+        module_path = w.read_string
+        full_path = dir + (module_path + ".fry")
+        file = @compiler.file(full_path)
+        file.mark_module
+        @scope[module_name] = ModuleExpr.new(file)
       else
         raise "Unknown tag: #{tag.name}"
       end
@@ -164,6 +193,7 @@ class Compiler
   end
 
   def file(path)
+    path = Pathname(path).cleanpath.to_s
     if @files.has_key?(path)
       @files[path]
     else

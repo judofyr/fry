@@ -73,7 +73,7 @@ module Parser
     ## Toplevel statements
 
     let(:toplevel) do
-      include_stmt / func / struct / union / trait / constructor
+      include_stmt / import_stmt / func / struct / union / trait / constructor
     end
 
     let(:toplevels) do
@@ -83,6 +83,12 @@ module Parser
 
     let(:include_stmt) do
       tag(:include) >> ident("include") >> space? >> string
+    end
+
+    let(:import_stmt) do
+      tag(:import) >> ident("import") >> space? >>
+      tag(:import_name) >> ident >> space? >>
+      string
     end
 
     let(:field) do

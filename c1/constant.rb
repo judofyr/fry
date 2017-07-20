@@ -15,3 +15,5 @@ end
 class IntConstant < Constant
 end
 
+class ModuleConstant < Constant
+end

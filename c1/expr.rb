@@ -59,6 +59,20 @@ class TypeConstructorExpr < TypeExpr
   end
 end
 
+class ModuleExpr < Expr
+  def initialize(file)
+    @file = file
+  end
+
+  def compile_expr
+    self
+  end
+
+  def constant
+    @constant ||= ModuleConstant.new(@file)
+  end
+end
+
 ## Literals
 
 class IntExpr < Expr

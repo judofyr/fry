@@ -71,45 +71,5 @@ T: Type
   return: T
 }
 
-struct List
-T: Type
+import list "./list"
 
-function list
-T: Type
-return: List<T>
-@js "return [];"
-
-function listpush
-T: Type
-list: List<T>
-val: T
-@js "list.push(val);"
-
-function listlen
-T: Type
-list: List<T>
-return: Int32
-@js "return [list.length];"
-
-function listat
-T: Type
-list: List<T>
-idx: Int32
-return: T
-@js "return list[idx];"
-
-constructor listarr
-T: Type
-list: List<T>
-return: Arr<T>
-{
-  implement len
-  {
-    return listlen(T=T, list=list)
-  }
-
-  implement at
-  {
-    return listat(T=T, list=list, idx=idx)
-  }
-}

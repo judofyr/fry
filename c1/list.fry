@@ -1,0 +1,43 @@
+
+struct List
+T: Type
+
+function new
+T: Type
+return: List<T>
+@js "return [];"
+
+function push
+T: Type
+list: List<T>
+val: T
+@js "list.push(val);"
+
+function len
+T: Type
+list: List<T>
+return: Int32
+@js "return [list.length];"
+
+function at
+T: Type
+list: List<T>
+idx: Int32
+return: T
+@js "return list[idx];"
+
+constructor arr
+T: Type
+list: List<T>
+return: Arr<T>
+{
+  implement len
+  {
+    return len(T=T, list=list)
+  }
+
+  implement at
+  {
+    return at(T=T, list=list, idx=idx)
+  }
+}

@@ -111,6 +111,8 @@ module ExprCompiler
           if type.is_a?(ConstructedType)
             expr = type.constructor.field_expr(expr, name, is_predicate: is_predicate)
             raise "cannot find: #{name}" if expr.nil?
+          elsif file = expr.constant_value(ModuleConstant)
+            expr = file.scope.lookup(name).compile_expr
           else
             raise "cannot fetch field"
           end
